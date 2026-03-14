@@ -38,6 +38,7 @@ Key model config (gemma-2b): 18 layers, 18 heads, d_model=2048, key head (13, 7)
 - **Run anything**: `uv run python -m circuits.<module>`
 - **Python version**: 3.11 (pinned in `.python-version`)
 - **Tests**: `uv run pytest -v` (tests/ directory, must run on login node, no GPU needed)
+- **IMPORTANT**: Run `uv run pytest -v` after ANY code change. All tests must pass before committing.
 - **Linting**: not configured; no pre-commit hooks
 
 ### Key dependencies
@@ -95,7 +96,11 @@ Each module accepts `--lang`, `--model`, `--device`, `--data-dir`, `--out-dir`. 
 ## Key Gotchas
 
 - **transformers <5.0.0** is required — transformer-lens breaks on v5+
-- **Dataset sizes**: ~6000 EN and ~5800 ES examples after filtering. Patching is O(examples x layers x heads) — subsample for fast iteration
+- **Dataset sizes**: ~6000 EN and ~5800 ES examples from templates. The paper uses subsamples matching their notebook defaults (built into each module's `--max-examples`):
+  - Patching: 128, DLA: 256, Neurons: 300, PCA: 256, Steering: full Spanish set
+- **English source**: CausalGym (`aryaman/causalgym`, subset `agr_sv_num_subj-relc`, 536 examples) — matches the paper exactly
+- **Spanish source**: Paper's GPT-4-curated word lists (100 nouns, 52 RC verbs, 5 prediction verbs), same template/seed — matches the paper exactly
+- Patching is O(examples × layers × heads) — the subsampling defaults keep runtime reasonable
 - **All verbs are single Gemma subwords** — filtered during data generation
 - **Results saved as .npz** files in `results/`; figures in `results/figures/`
 - **Paths in config.py** are relative to PROJECT_ROOT (parent of `circuits/`), so always run from repo root

@@ -91,6 +91,10 @@ def main():
                         default=[0.0, 5.0, 10.0, 20.0, 30.0, 50.0])
     parser.add_argument("--out-dir", default=str(RESULTS_DIR))
     parser.add_argument("--device", default="cuda")
+    # Paper uses 50 English examples for PC1 extraction and evaluates steering
+    # on the Spanish test split
+    parser.add_argument("--max-examples", type=int, default=None,
+                        help="Max Spanish examples for steering evaluation")
     args = parser.parse_args()
 
     # Load the PC1 direction extracted from English (or bilingual) head outputs
@@ -100,6 +104,9 @@ def main():
     model = load_model(args.model, device=args.device)
     # Steer on Spanish data to test cross-lingual transfer of the number direction
     dataset = load_sva_dataset(args.es_data)
+    if args.max_examples and len(dataset) > args.max_examples:
+        dataset = dataset[:args.max_examples]
+        print(f"Using {len(dataset)} Spanish examples for steering")
 
     results = {"alphas": [], "flip_rate_pos": [], "flip_rate_neg": []}
 

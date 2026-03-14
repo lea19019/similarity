@@ -73,6 +73,10 @@ def main():
     parser.add_argument("--data-dir", default=str(DATA_DIR))
     parser.add_argument("--out-dir", default=str(RESULTS_DIR))
     parser.add_argument("--device", default="cuda")
+    # Paper uses 256 examples for PCA (directions.ipynb, train split);
+    # PC1 for steering was extracted from just 50 English examples
+    parser.add_argument("--max-examples", type=int, default=256,
+                        help="Max examples per language (default: 256, matching paper)")
     args = parser.parse_args()
 
     model = load_model(args.model, device=args.device)
@@ -82,6 +86,9 @@ def main():
     langs_to_use = ["en", "es"] if args.lang == "both" else [args.lang]
     for lang in langs_to_use:
         dataset = load_sva_dataset(f"{args.data_dir}/{lang}_sva.jsonl")
+        if args.max_examples and len(dataset) > args.max_examples:
+            dataset = dataset[:args.max_examples]
+            print(f"{lang.upper()}: using {len(dataset)} examples (subsampled)")
         vecs, lbls, lngs = collect_head_outputs(
             model, dataset, args.layer, args.head, device=args.device
         )

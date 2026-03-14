@@ -88,9 +88,15 @@ def main():
     parser.add_argument("--data-dir", default=str(DATA_DIR))
     parser.add_argument("--out-dir", default=str(RESULTS_DIR))
     parser.add_argument("--device", default="cuda")
+    # Paper uses 256 examples for DLA (DLA_attn_maps.ipynb, train split)
+    parser.add_argument("--max-examples", type=int, default=256,
+                        help="Max examples to use (default: 256, matching paper)")
     args = parser.parse_args()
 
     dataset = load_sva_dataset(f"{args.data_dir}/{args.lang}_sva.jsonl")
+    if args.max_examples and len(dataset) > args.max_examples:
+        dataset = dataset[:args.max_examples]
+        print(f"Using {len(dataset)} examples (subsampled from full dataset)")
     model = load_model(args.model, device=args.device)
 
     results = compute_dla(model, dataset, device=args.device)

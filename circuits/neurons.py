@@ -79,9 +79,15 @@ def main():
     parser.add_argument("--data-dir", default=str(DATA_DIR))
     parser.add_argument("--out-dir", default=str(RESULTS_DIR))
     parser.add_argument("--device", default="cuda")
+    # Paper uses 300 examples for neuron analysis (components_neurons.ipynb, train split)
+    parser.add_argument("--max-examples", type=int, default=300,
+                        help="Max examples to use (default: 300, matching paper)")
     args = parser.parse_args()
 
     dataset = load_sva_dataset(f"{args.data_dir}/{args.lang}_sva.jsonl")
+    if args.max_examples and len(dataset) > args.max_examples:
+        dataset = dataset[:args.max_examples]
+        print(f"Using {len(dataset)} examples (subsampled from full dataset)")
     model = load_model(args.model, device=args.device)
 
     neuron_dla = compute_neuron_dla(
