@@ -9,6 +9,10 @@ from circuits.config import MODEL_CONFIGS
 def load_model(model_key: str = "gemma-2b", device: str = "cuda") -> HookedTransformer:
     """Load a HookedTransformer model for circuit analysis."""
     cfg = MODEL_CONFIGS[model_key]
+    # center_writing_weights=False, center_unembed=False, fold_ln=False:
+    # Preserve the original model weights without TransformerLens post-processing.
+    # Centering and LayerNorm folding simplify some analyses but alter the raw
+    # activations, which would distort patching and DLA results.
     model = HookedTransformer.from_pretrained(
         cfg["tl_name"],
         center_writing_weights=False,

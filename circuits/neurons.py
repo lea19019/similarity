@@ -39,6 +39,8 @@ def compute_neuron_dla(
         )
         unembed_dir = (W_U[:, good_id] - W_U[:, bad_id]).float()
 
+        # hook_post captures the gated MLP activations: σ(x·W_gate) ⊙ (x·W_in),
+        # i.e. the post-activation values after the gating nonlinearity
         hook_names = {
             layer: f"blocks.{layer}.mlp.hook_post"
             for layer in target_layers
@@ -48,9 +50,14 @@ def compute_neuron_dla(
             _, cache = model.run_with_cache(tokens, names_filter=list(hook_names.values()))
 
         for layer in target_layers:
+            # post: per-neuron activation values after gating, shape (d_mlp,)
             post = cache[hook_names[layer]][0, -1, :]
             W_out = model.blocks[layer].mlp.W_out
+            # w_proj: each neuron's W_out row dotted with the verb-number direction
+            # — how much each neuron's output column aligns with the decision direction
             w_proj = W_out @ unembed_dir
+            # Neuron DLA = activation * alignment. This decomposes the MLP's total
+            # DLA into individual neuron contributions (exact, not an approximation).
             neuron_dla = (post * w_proj).cpu().numpy()
             neuron_sums[layer] += neuron_dla
 
@@ -63,6 +70,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--lang", choices=["en", "es"], required=True)
     parser.add_argument("--model", default="gemma-2b")
+    # Layers 13 and 17 are the defaults because they contain the neurons with
+    # highest DLA for SVA in gemma-2b (neuron 2069@MLP13, neuron 1138@MLP17)
     parser.add_argument("--layers", type=int, nargs="+", default=[13, 17],
                         help="MLP layers to analyse (default: 13 17)")
     parser.add_argument("--top-k", type=int, default=20,

@@ -36,7 +36,10 @@ def compute_dla(
     mlp_sums = np.zeros(n_layers)
     count = 0
 
-    W_U = model.W_U
+    # Key insight: the final logit is a linear function of the residual stream.
+    # So we can decompose the logit difference into additive per-component contributions
+    # without any approximation — each head/MLP's output dot the unembedding direction.
+    W_U = model.W_U  # (d_model, vocab_size) — the unembedding matrix
 
     for ex in tqdm(examples, desc="DLA"):
         tokens, good_id, bad_id = tokenize_pair(
@@ -46,18 +49,24 @@ def compute_dla(
         with torch.no_grad():
             _, cache = model.run_with_cache(tokens)
 
+        # The "verb number direction" in vocab space: the difference between the
+        # unembedding columns for the correct vs incorrect verb. A component whose
+        # output aligns with this direction pushes the model toward the correct verb.
         unembed_dir = W_U[:, good_id] - W_U[:, bad_id]
 
         for layer in range(n_layers):
+            # hook_result is the per-head output in d_head space (before W_O projection)
             head_out = cache[f"blocks.{layer}.attn.hook_result"]
             W_O = model.blocks[layer].attn.W_O
             for head in range(n_heads):
                 h_out = head_out[0, -1, head, :]
+                # Project from d_head → d_model via W_O so we can dot with unembed_dir
                 projected = W_O[head].T @ h_out
                 dla = (projected @ unembed_dir).item()
                 head_sums[layer, head] += dla
 
         for layer in range(n_layers):
+            # MLP output is already in d_model space, so no projection needed
             mlp_out = cache[f"blocks.{layer}.hook_mlp_out"]
             m_out = mlp_out[0, -1, :]
             dla = (m_out @ unembed_dir).item()

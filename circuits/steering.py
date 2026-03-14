@@ -33,6 +33,9 @@ def steer_and_measure(
     """
     hook_name = f"blocks.{layer}.attn.hook_result"
     pc1_tensor = torch.tensor(pc1, dtype=torch.float32, device=device)
+    # "pos" pushes toward one end of the number direction (e.g. plural),
+    # "neg" pushes the other way (singular). Which is which depends on
+    # the sign convention learned by PCA.
     sign = +1.0 if direction == "pos" else -1.0
 
     flips = 0
@@ -44,14 +47,20 @@ def steer_and_measure(
         )
         tokens = tokens.to(device)
 
+        # Get the model's unsteered prediction as baseline
         with torch.no_grad():
             base_logits = model(tokens)
         base_pred = _top1_choice(base_logits, good_id, bad_id)
 
         def hook_fn(value, hook):
+            # Add the EN-derived number direction to the head's output.
+            # alpha controls the steering magnitude — larger alpha = stronger intervention.
             value[:, -1, head, :] += sign * alpha * pc1_tensor
             return value
 
+        # The cross-lingual causal claim: if adding the English-derived PC1
+        # direction to a Spanish forward pass flips the verb prediction,
+        # then this direction is causally relevant across languages.
         with torch.no_grad():
             steered_logits = model.run_with_hooks(
                 tokens, fwd_hooks=[(hook_name, hook_fn)]
@@ -66,6 +75,7 @@ def steer_and_measure(
 
 
 def _top1_choice(logits: torch.Tensor, good_id: int, bad_id: int) -> int:
+    """Return 0 if model prefers the correct (good) verb, 1 otherwise."""
     last = logits[0, -1, :]
     return 0 if last[good_id] > last[bad_id] else 1
 
@@ -83,10 +93,12 @@ def main():
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
 
+    # Load the PC1 direction extracted from English (or bilingual) head outputs
     pca_data = np.load(args.pca_path)
     pc1 = pca_data["pc1"]
 
     model = load_model(args.model, device=args.device)
+    # Steer on Spanish data to test cross-lingual transfer of the number direction
     dataset = load_sva_dataset(args.es_data)
 
     results = {"alphas": [], "flip_rate_pos": [], "flip_rate_neg": []}

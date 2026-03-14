@@ -47,6 +47,7 @@ def run_patching(
         good_ids = torch.tensor([good_id], device=device)
         bad_ids = torch.tensor([bad_id], device=device)
 
+        # Cache clean activations — these will be "patched in" to the corrupted run
         with torch.no_grad():
             clean_logits, clean_cache = model.run_with_cache(clean_tokens)
             corr_logits, _ = model.run_with_cache(corrupted_tokens)
@@ -54,9 +55,15 @@ def run_patching(
         clean_ld = logit_diff(clean_logits, good_ids, bad_ids).item()
         corr_ld = logit_diff(corr_logits, good_ids, bad_ids).item()
 
+        # Skip if clean and corrupted produce nearly the same logit diff —
+        # normalization would divide by ~0, and these examples don't distinguish behavior
         if abs(clean_ld - corr_ld) < 1e-4:
             continue
 
+        # Denoising patching: run on the corrupted input but replace one
+        # component's activation with its clean-run value. If this restores
+        # correct behavior (normalized_patch_effect → 1), that component
+        # causally carries the subject-number signal.
         for layer in range(n_layers):
             for head in range(n_heads):
                 patched_ld = _patch_head(
@@ -106,13 +113,16 @@ def _patch_hook(
     hook_name: str, pos: int,
     good_ids, bad_ids,
 ) -> float:
+    """Patch a full activation (attn_out or mlp_out) at one position."""
     def hook_fn(value, hook):
+        # Replace the corrupted activation at this position with the clean one
         if pos == -1:
             value[:, -1, :] = clean_cache[hook_name][:, -1, :]
         else:
             value[:, pos, :] = clean_cache[hook_name][:, pos, :]
         return value
 
+    # run_with_hooks: forward pass that fires hook_fn when the named activation is computed
     with torch.no_grad():
         patched_logits = model.run_with_hooks(
             corrupted_tokens,
@@ -126,9 +136,13 @@ def _patch_head(
     layer: int, head: int,
     good_ids, bad_ids,
 ) -> float:
+    """Patch a single attention head's output at the final token position."""
+    # hook_result has shape (batch, seq, n_heads, d_head) — the per-head output
+    # before summing across heads
     hook_name = f"blocks.{layer}.attn.hook_result"
 
     def hook_fn(value, hook):
+        # Only patch this specific head, leaving all other heads at their corrupted values
         value[:, -1, head, :] = clean_cache[hook_name][:, -1, head, :]
         return value
 

@@ -17,6 +17,11 @@ from circuits.config import DATA_DIR, MODEL_CONFIGS
 
 
 # ── English templates ────────────────────────────────────────────────────────
+# Each template follows the pattern:
+#   "The {sg_subj} that {rc_verb} the {obj} {sg_verb}"
+# The relative clause ("that {rc_verb} the {obj}") introduces an attractor noun
+# ({obj}) that differs in number from the subject. This makes subject-verb
+# agreement hard — the model must track the true subject through the distraction.
 
 EN_SUBJECTS = [
     ("executive", "executives"),
@@ -62,6 +67,10 @@ def _build_english_examples() -> List[dict]:
     ):
         if sg_subj == obj or pl_subj == obj:
             continue
+        # Contrastive pair: "clean" has singular subject + correct singular verb,
+        # "corrupted" has plural subject + plural verb. good_verb is the verb that
+        # agrees with the clean (singular) subject; bad_verb is the alternative.
+        # In denoising patching, we run on corrupted and patch in clean activations.
         examples.append({
             "clean": f"The {sg_subj} that {rc_verb} the {obj} {sg_verb}",
             "corrupted": f"The {pl_subj} that {rc_verb} the {obj} {pl_verb}",
@@ -92,7 +101,8 @@ ES_SUBJECTS = [
     ("piloto", "pilotos"),
 ]
 
-# RC verb must agree: (sg form, pl form)
+# Spanish RC verbs must also inflect for number (unlike English past tense),
+# so each entry is a (singular, plural) pair for the relative clause verb.
 ES_RC_VERBS = [
     ("ayudó", "ayudaron"),
     ("culpó", "culparon"),
@@ -141,6 +151,9 @@ def _build_spanish_examples() -> List[dict]:
 
 def _filter_single_token(examples: List[dict], model_key: str) -> List[dict]:
     """Keep only examples where both good_verb and bad_verb are single Gemma subwords."""
+    # Single-token verbs are required so that logit attribution is clean:
+    # if a verb is split into multiple subwords, the logit at the final position
+    # doesn't directly correspond to choosing that verb.
     import os
     from transformers import AutoTokenizer
 
@@ -149,6 +162,7 @@ def _filter_single_token(examples: List[dict], model_key: str) -> List[dict]:
     tokenizer = AutoTokenizer.from_pretrained(hf_name, token=token)
 
     def is_single_token(word: str) -> bool:
+        # Prepend space to match how the tokenizer sees mid-sentence words
         ids = tokenizer.encode(f" {word}", add_special_tokens=False)
         return len(ids) == 1
 

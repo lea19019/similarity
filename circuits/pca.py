@@ -35,6 +35,8 @@ def collect_head_outputs(
     vectors, labels, langs = [], [], []
 
     for ex in tqdm(examples, desc=f"Collecting L{layer}H{head} outputs"):
+        # Collect both clean (singular subject, label=0) and corrupted (plural subject,
+        # label=1) outputs so PCA can find the direction that separates them
         for use_corrupted, label in [(False, 0), (True, 1)]:
             prompt = ex["corrupted"] if use_corrupted else ex["clean"]
             tokens, _, _ = tokenize_pair(model, prompt, ex["good_verb"], ex["bad_verb"])
@@ -42,6 +44,7 @@ def collect_head_outputs(
             with torch.no_grad():
                 _, cache = model.run_with_cache(tokens, names_filter=[hook_name])
 
+            # Extract the head's output vector at the final token position (d_head dims)
             h_out = cache[hook_name][0, -1, head, :].cpu().numpy()
             vectors.append(h_out)
             labels.append(label)
@@ -51,6 +54,9 @@ def collect_head_outputs(
 
 
 def fit_pca(vectors: np.ndarray) -> PCA:
+    # If PC1 cleanly separates singular vs plural (and does so for both EN and ES
+    # when trained on both), then the head uses a shared, language-independent
+    # representation of subject number.
     pca = PCA(n_components=min(10, vectors.shape[1]))
     pca.fit(vectors)
     print(f"Variance explained by PC1: {pca.explained_variance_ratio_[0]:.3f}")
@@ -88,10 +94,12 @@ def main():
     langs = np.concatenate(all_langs)
 
     pca = fit_pca(vectors)
+    # Project all vectors onto PC1 — the expected subject-number direction
     projections = pca.transform(vectors)[:, 0]
 
     out_path = Path(args.out_dir) / f"pca_L{args.layer}H{args.head}.npz"
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    # Save PC1 direction for use in steering experiments
     np.savez(
         out_path,
         pc1=pca.components_[0],
@@ -101,6 +109,7 @@ def main():
     )
     print(f"Saved PCA results → {out_path}")
 
+    # Verify that PC1 separates singular vs plural — large separation = clean encoding
     sg_proj = projections[labels == 0].mean()
     pl_proj = projections[labels == 1].mean()
     print(f"Mean PC1 projection — singular: {sg_proj:.4f}, plural: {pl_proj:.4f}")
