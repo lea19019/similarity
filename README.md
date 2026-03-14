@@ -13,134 +13,78 @@ This project reverse-engineers how **Gemma 2B** solves subject-verb agreement (S
 ### Pipeline
 
 ```
-01_create_dataset.py        # Build English + Spanish SVA contrastive pairs
-02_activation_patching.py   # Identify important components via logit difference
-03_direct_logit_attribution.py  # DLA: per-component effect on output logits
-04_neuron_analysis.py       # Pin down MLP neurons reading the number signal
-05_pca_directions.py        # Extract subject-number direction via PCA on L13H7
-06_activation_steering.py   # Cross-lingual causal intervention (EN direction → ES)
+circuits/data.py        # Build English + Spanish SVA contrastive pairs
+circuits/patching.py    # Identify important components via logit difference
+circuits/dla.py         # DLA: per-component effect on output logits
+circuits/neurons.py     # Pin down MLP neurons reading the number signal
+circuits/pca.py         # Extract subject-number direction via PCA on L13H7
+circuits/steering.py    # Cross-lingual causal intervention (EN direction → ES)
+circuits/plotting.py    # Generate publication figures
 ```
-
----
 
 ## Setup
 
 ### Requirements
 
 - Python 3.11+
-- CUDA GPU (A100 or V100 recommended for Gemma 2B)
+- CUDA GPU (A100 recommended for Gemma 2B)
 - HuggingFace account with access to [google/gemma-2b](https://huggingface.co/google/gemma-2b)
 
 ### Installation
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+uv sync
 ```
 
 ### HuggingFace Token
 
 ```bash
+# Add to .env:
 export HF_TOKEN=your_token_here
-huggingface-cli login --token $HF_TOKEN
 ```
 
----
+## Usage
+
+### Generate datasets
+
+```bash
+uv run python -m circuits.data --lang both --model gemma-2b
+```
+
+### Run individual experiments
+
+```bash
+uv run python -m circuits.patching --lang en
+uv run python -m circuits.dla --lang en
+uv run python -m circuits.neurons --lang en
+uv run python -m circuits.pca --lang both
+uv run python -m circuits.steering
+uv run python -m circuits.plotting
+```
+
+### Submit full pipeline (SLURM)
+
+```bash
+sbatch run.sh
+```
 
 ## Data
 
 ### English
-From Arora et al. (2024) via SyntaxGym — subset `agr_sv_num_subj-relc`.
-Each example is a **contrastive pair**: a clean sentence (subject agrees with verb) and a corrupted one (subject number flipped).
-
-```
-clean:     "The executive that embarrassed the manager has"   → singular verb
-corrupted: "The executives that embarrassed the manager"      → plural verb
-```
+Template-based generation using curated lists of subjects, relative-clause verbs, objects, and main verb pairs. Examples are filtered to ensure verbs tokenize to a single Gemma subword.
 
 ### Spanish
-A parallel dataset constructed by GPT-4 following the same structure.
-Words tokenized into multiple subwords are excluded to keep logit analysis clean.
+Same template structure with Spanish nouns/verbs. RC verbs agree in number with the subject.
 
-```
-clean:     "El ingeniero que ayudó al cantante era"    → singular verb
-corrupted: "Los ingenieros que ayudaron al cantante"   → plural verb
-```
-
-Run `01_create_dataset.py` to produce both datasets under `data/processed/`.
-
----
-
-## Experiments
-
-### 1. Activation Patching (Script 02)
-
-For each component (residual stream position, attention block, MLP block, individual attention head), substitute activations from the **clean** run into the **corrupted** run and measure the change in logit difference:
-
-```
-logit_diff = logit(correct_verb) - logit(incorrect_verb)
-patched_effect = (logit_diff_patched - logit_diff_corrupted) /
-                 (logit_diff_clean   - logit_diff_corrupted)
-```
-
-Expected key finding: **L13H7** dominates at the final token position.
-
-### 2. Direct Logit Attribution (Script 03)
-
-Decompose the logit difference into per-component additive contributions via the unembedding matrix `W_U`:
-
-```
-DLA_c = f_c(x̃) · W_U[:, good_verb] - f_c(x̃) · W_U[:, bad_verb]
-```
-
-### 3. Neuron Analysis (Script 04)
-
-Identify which MLP neurons read the subject-number signal written by L13H7.
-Focus on the gated MLP structure:
-
-```
-GMLP(x) = (σ(x W_gate) ⊙ x W_in) W_out
-```
-
-Key neurons expected: **2069 in MLP13**, **1138 in MLP17**.
-
-### 4. PCA on L13H7 Output (Script 05)
-
-Apply PCA to the outputs of L13H7 across the dataset (both languages).
-The first principal component (PC1) should encode singular vs. plural.
-Verify this is language-independent by checking PC1 alignment across EN/ES.
-
-### 5. Activation Steering (Script 06)
-
-Add/subtract `α * PC1_English` to L13H7's output during Spanish forward passes:
-
-```
-Attn_L13H7_patched = Attn_L13H7 ± α * PC1_English
-```
-
-Measure how often the model flips its predicted verb number as α varies.
-This is the key cross-lingual causal evidence.
-
----
-
-## Results
-
-Outputs are saved to `results/`:
-- `results/figures/` — activation patching heatmaps, DLA bar charts, PCA scatter plots, steering accuracy curves
-- `results/metrics.json` — numerical summaries
-
----
+Both datasets are written to `data/processed/` as JSONL.
 
 ## Models
 
-| Model        | HF ID                  | Notes                        |
-|--------------|------------------------|------------------------------|
-| Gemma 2B     | `google/gemma-2b`      | Primary model                |
-| Gemma 7B     | `google/gemma-7b`      | Replication check            |
-| Gemma 2 2B   | `google/gemma-2-2b`    | Key head: L19H3 instead      |
-
----
+| Model      | HF ID               | Key Head |
+|------------|----------------------|----------|
+| Gemma 2B   | `google/gemma-2b`    | L13H7    |
+| Gemma 7B   | `google/gemma-7b`    | TBD      |
+| Gemma 2 2B | `google/gemma-2-2b`  | L19H3    |
 
 ## References
 

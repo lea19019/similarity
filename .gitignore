@@ -1,0 +1,16 @@
+# Environment
+.env
+.venv/
+__pycache__/
+*.pyc
+
+# uv
+uv.lock
+
+# Data & results
+data/processed/
+results/
+logs/
+
+# OS
+.DS_Store

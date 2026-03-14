@@ -1,21 +1,9 @@
 """
-06_activation_steering.py
-
-Cross-lingual causal intervention: does the English subject-number direction
+Cross-lingual activation steering: does the English subject-number direction
 causally control Spanish verb predictions?
 
-Procedure (§4.3 of paper):
-1. Load PC1 from the English PCA (extracted in script 05).
-2. For each Spanish example, run the model and add ±α * PC1_English
-   to L13H7's output at the last token position.
-3. Measure whether the predicted verb number flips.
-4. Sweep α to produce a steering accuracy curve.
-
-Expected finding: adding PC1_English in the "plural direction" causes the
-model to predict the plural Spanish verb (and vice versa), demonstrating
-a language-independent causal effect.
-
-Results saved to results/steering.npz
+Usage:
+    uv run python -m circuits.steering --model gemma-2b
 """
 import argparse
 from pathlib import Path
@@ -25,26 +13,23 @@ import torch
 from tqdm import tqdm
 from transformer_lens import HookedTransformer
 
-from utils import load_model, load_sva_dataset, tokenize_pair
+from circuits.config import DATA_DIR, RESULTS_DIR
+from circuits.model import load_model, tokenize_pair
+from circuits.data import load_sva_dataset
 
 
 def steer_and_measure(
     model: HookedTransformer,
     examples: list,
-    pc1: np.ndarray,       # (d_head,)
+    pc1: np.ndarray,
     layer: int,
     head: int,
     alpha: float,
-    direction: str,        # "pos" or "neg"
+    direction: str,
     device: str,
 ) -> float:
     """
-    For each example, intervene on L{layer}H{head} output by adding
-    alpha * pc1 (direction="pos") or -alpha * pc1 (direction="neg"),
-    then check if the model's top-1 prediction at the last token flips
-    from the base (unsteered) prediction.
-
-    Returns the fraction of examples where the prediction flips.
+    Intervene on L{layer}H{head} by adding ±alpha*pc1, return flip fraction.
     """
     hook_name = f"blocks.{layer}.attn.hook_result"
     pc1_tensor = torch.tensor(pc1, dtype=torch.float32, device=device)
@@ -59,12 +44,10 @@ def steer_and_measure(
         )
         tokens = tokens.to(device)
 
-        # Unsteered prediction
         with torch.no_grad():
             base_logits = model(tokens)
         base_pred = _top1_choice(base_logits, good_id, bad_id)
 
-        # Steered prediction
         def hook_fn(value, hook):
             value[:, -1, head, :] += sign * alpha * pc1_tensor
             return value
@@ -83,10 +66,6 @@ def steer_and_measure(
 
 
 def _top1_choice(logits: torch.Tensor, good_id: int, bad_id: int) -> int:
-    """
-    Return 0 if the model prefers good_id over bad_id at the last token,
-    else return 1.
-    """
     last = logits[0, -1, :]
     return 0 if last[good_id] > last[bad_id] else 1
 
@@ -95,22 +74,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="gemma-2b")
     parser.add_argument("--layer", type=int, default=13)
-    parser.add_argument("--head",  type=int, default=7)
-    parser.add_argument("--pca-path", default="results/pca_L13H7.npz",
-                        help="Path to PC1 from script 05 (English PCA)")
-    parser.add_argument("--es-data", default="data/processed/es_sva.jsonl")
+    parser.add_argument("--head", type=int, default=7)
+    parser.add_argument("--pca-path", default=str(RESULTS_DIR / "pca_L13H7.npz"))
+    parser.add_argument("--es-data", default=str(DATA_DIR / "es_sva.jsonl"))
     parser.add_argument("--alphas", type=float, nargs="+",
-                        default=[0.0, 5.0, 10.0, 20.0, 30.0, 50.0],
-                        help="Steering magnitudes to sweep")
-    parser.add_argument("--out-dir", default="results")
+                        default=[0.0, 5.0, 10.0, 20.0, 30.0, 50.0])
+    parser.add_argument("--out-dir", default=str(RESULTS_DIR))
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
 
-    # Load English PC1
     pca_data = np.load(args.pca_path)
-    pc1 = pca_data["pc1"]   # (d_head,) — English subject-number direction
+    pc1 = pca_data["pc1"]
 
-    model   = load_model(args.model, device=args.device)
+    model = load_model(args.model, device=args.device)
     dataset = load_sva_dataset(args.es_data)
 
     results = {"alphas": [], "flip_rate_pos": [], "flip_rate_neg": []}

@@ -1,15 +1,8 @@
 """
-07_plot_results.py
-
 Generate all paper figures from saved result files.
 
-Figures produced:
-    fig1_patching_en.png   — Activation patching heatmap (English), per head
-    fig2_patching_es.png   — Activation patching heatmap (Spanish), per head
-    fig3_dla_en.png        — DLA bar chart (English)
-    fig4_dla_es.png        — DLA bar chart (Spanish)
-    fig5_pca_scatter.png   — PC1 scatter: English vs. Spanish, singular vs. plural
-    fig6_steering.png      — Steering flip-rate vs. alpha
+Usage:
+    uv run python -m circuits.plotting --results-dir results --out-dir results/figures
 """
 import argparse
 from pathlib import Path
@@ -18,11 +11,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from circuits.config import RESULTS_DIR, FIGURES_DIR
 
-# ── Activation patching heatmap ─────────────────────────────────────────────────
+
 def plot_head_patching(npz_path: str, out_path: str, title: str = "") -> None:
     data = np.load(npz_path)
-    head_out = data["head_out"]   # (n_layers, n_heads)
+    head_out = data["head_out"]
 
     fig, ax = plt.subplots(figsize=(12, 6))
     sns.heatmap(
@@ -44,16 +38,14 @@ def plot_head_patching(npz_path: str, out_path: str, title: str = "") -> None:
     print(f"Saved → {out_path}")
 
 
-# ── DLA bar chart ───────────────────────────────────────────────────────────────
 def plot_dla(npz_path: str, out_path: str, top_k: int = 15, title: str = "") -> None:
     data = np.load(npz_path)
-    head_dla = data["head_dla"]   # (n_layers, n_heads)
+    head_dla = data["head_dla"]
 
-    # Flatten and take top-k by absolute value
     flat = head_dla.flatten()
     top_idx = np.argsort(np.abs(flat))[::-1][:top_k]
-    labels  = [f"L{i // head_dla.shape[1]}H{i % head_dla.shape[1]}" for i in top_idx]
-    values  = flat[top_idx]
+    labels = [f"L{i // head_dla.shape[1]}H{i % head_dla.shape[1]}" for i in top_idx]
+    values = flat[top_idx]
 
     fig, ax = plt.subplots(figsize=(10, 4))
     colors = ["steelblue" if v > 0 else "tomato" for v in values]
@@ -68,16 +60,15 @@ def plot_dla(npz_path: str, out_path: str, top_k: int = 15, title: str = "") -> 
     print(f"Saved → {out_path}")
 
 
-# ── PCA scatter ─────────────────────────────────────────────────────────────────
 def plot_pca_scatter(npz_path: str, out_path: str) -> None:
     data = np.load(npz_path, allow_pickle=True)
     projections = data["projections"]
     labels = data["labels"]
-    langs  = data["langs"]
+    langs = data["langs"]
 
     fig, ax = plt.subplots(figsize=(7, 5))
     markers = {"en": "o", "es": "^"}
-    colors  = {0: "steelblue", 1: "tomato"}   # 0=singular, 1=plural
+    colors = {0: "steelblue", 1: "tomato"}
 
     for lang in ["en", "es"]:
         for label, name in [(0, "singular"), (1, "plural")]:
@@ -102,12 +93,11 @@ def plot_pca_scatter(npz_path: str, out_path: str) -> None:
     print(f"Saved → {out_path}")
 
 
-# ── Steering curve ───────────────────────────────────────────────────────────────
 def plot_steering(npz_path: str, out_path: str) -> None:
     data = np.load(npz_path)
-    alphas       = data["alphas"]
-    flip_pos     = data["flip_rate_pos"]
-    flip_neg     = data["flip_rate_neg"]
+    alphas = data["alphas"]
+    flip_pos = data["flip_rate_pos"]
+    flip_neg = data["flip_rate_neg"]
 
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.plot(alphas, flip_pos, "o-", label="+ α·PC1 (push plural)")
@@ -123,11 +113,10 @@ def plot_steering(npz_path: str, out_path: str) -> None:
     print(f"Saved → {out_path}")
 
 
-# ── Entry point ─────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--results-dir", default="results")
-    parser.add_argument("--out-dir", default="results/figures")
+    parser.add_argument("--results-dir", default=str(RESULTS_DIR))
+    parser.add_argument("--out-dir", default=str(FIGURES_DIR))
     args = parser.parse_args()
 
     r = Path(args.results_dir)
