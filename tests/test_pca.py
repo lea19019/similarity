@@ -45,3 +45,9 @@ class TestFitPca:
         pca = fit_pca(vectors)
         # PC1 should explain most variance
         assert pca.explained_variance_ratio_[0] > 0.9
+
+    def test_n_components_capped_by_samples(self):
+        """When n_samples < n_features and < 10, n_components should equal n_samples."""
+        vectors = np.random.randn(3, 64)
+        pca = fit_pca(vectors)
+        assert pca.n_components == 3
