@@ -31,7 +31,7 @@ def collect_head_outputs(
         labels  : (2 * n_examples,)  — 0 singular, 1 plural
         langs   : (2 * n_examples,)  — "en" or "es"
     """
-    hook_name = f"blocks.{layer}.attn.hook_result"
+    hook_name = f"blocks.{layer}.attn.hook_z"
     vectors, labels, langs = [], [], []
 
     for ex in tqdm(examples, desc=f"Collecting L{layer}H{head} outputs"):
@@ -45,7 +45,7 @@ def collect_head_outputs(
                 _, cache = model.run_with_cache(tokens, names_filter=[hook_name])
 
             # Extract the head's output vector at the final token position (d_head dims)
-            h_out = cache[hook_name][0, -1, head, :].cpu().numpy()
+            h_out = cache[hook_name][0, -1, head, :].detach().cpu().numpy()
             vectors.append(h_out)
             labels.append(label)
             langs.append(ex["lang"])
@@ -57,7 +57,7 @@ def fit_pca(vectors: np.ndarray) -> PCA:
     # If PC1 cleanly separates singular vs plural (and does so for both EN and ES
     # when trained on both), then the head uses a shared, language-independent
     # representation of subject number.
-    pca = PCA(n_components=min(10, vectors.shape[1]))
+    pca = PCA(n_components=min(10, vectors.shape[0], vectors.shape[1]))
     pca.fit(vectors)
     print(f"Variance explained by PC1: {pca.explained_variance_ratio_[0]:.3f}")
     print(f"Variance explained by PC2: {pca.explained_variance_ratio_[1]:.3f}")

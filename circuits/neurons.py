@@ -58,7 +58,7 @@ def compute_neuron_dla(
             w_proj = W_out @ unembed_dir
             # Neuron DLA = activation * alignment. This decomposes the MLP's total
             # DLA into individual neuron contributions (exact, not an approximation).
-            neuron_dla = (post * w_proj).cpu().numpy()
+            neuron_dla = (post * w_proj).detach().cpu().numpy()
             neuron_sums[layer] += neuron_dla
 
         count += 1

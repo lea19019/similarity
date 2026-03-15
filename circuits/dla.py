@@ -55,8 +55,8 @@ def compute_dla(
         unembed_dir = W_U[:, good_id] - W_U[:, bad_id]
 
         for layer in range(n_layers):
-            # hook_result is the per-head output in d_head space (before W_O projection)
-            head_out = cache[f"blocks.{layer}.attn.hook_result"]
+            # hook_z is the per-head output in d_head space (before W_O projection)
+            head_out = cache[f"blocks.{layer}.attn.hook_z"]
             W_O = model.blocks[layer].attn.W_O
             for head in range(n_heads):
                 h_out = head_out[0, -1, head, :]

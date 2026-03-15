@@ -31,7 +31,7 @@ def steer_and_measure(
     """
     Intervene on L{layer}H{head} by adding ±alpha*pc1, return flip fraction.
     """
-    hook_name = f"blocks.{layer}.attn.hook_result"
+    hook_name = f"blocks.{layer}.attn.hook_z"
     pc1_tensor = torch.tensor(pc1, dtype=torch.float32, device=device)
     # "pos" pushes toward one end of the number direction (e.g. plural),
     # "neg" pushes the other way (singular). Which is which depends on

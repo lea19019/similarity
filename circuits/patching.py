@@ -137,9 +137,9 @@ def _patch_head(
     good_ids, bad_ids,
 ) -> float:
     """Patch a single attention head's output at the final token position."""
-    # hook_result has shape (batch, seq, n_heads, d_head) — the per-head output
+    # hook_z has shape (batch, seq, n_heads, d_head) — the per-head output
     # before summing across heads
-    hook_name = f"blocks.{layer}.attn.hook_result"
+    hook_name = f"blocks.{layer}.attn.hook_z"
 
     def hook_fn(value, hook):
         # Only patch this specific head, leaving all other heads at their corrupted values
