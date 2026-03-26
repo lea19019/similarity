@@ -26,7 +26,9 @@ def load_model(model_key: str = "gemma-2b", device: str = "cuda") -> HookedTrans
 
 def get_token_id(model: HookedTransformer, word: str) -> int:
     """Get the single-token ID for a word. Raises if tokenized into >1 tokens."""
-    ids = model.to_tokens(word, prepend_bos=False)[0]
+    # Prepend space so SentencePiece treats word as a continuation token,
+    # matching the filtering in data.py (_filter_word_pairs).
+    ids = model.to_tokens(f" {word}", prepend_bos=False)[0]
     if ids.shape[0] != 1:
         raise ValueError(f"'{word}' tokenizes into {ids.shape[0]} tokens, expected 1.")
     return ids[0].item()

@@ -23,8 +23,7 @@
       "Bash(tail *)",
       "Bash(head *)",
       "Bash(cat *)",
-      "Bash(mkdir *)",
-      "Bash(claude update:*)"
+      "Bash(mkdir *)"
     ],
     "deny": [
       "Bash(rm -rf *)",

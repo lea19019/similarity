@@ -222,13 +222,16 @@ def _build_spanish_dataset(model_key: str = "gemma-2b") -> List[dict]:
     rc_verb_pairs = _filter_word_pairs(
         list(set(ES_RC_VERBS)), model_key
     )
+    pred_verb_pairs = _filter_word_pairs(
+        list(set(ES_PRED_VERBS)), model_key
+    )
 
     noun_sg = [f" {n[0]}" for n in noun_pairs]
     noun_pl = [f" {n[1]}" for n in noun_pairs]
     rc_sg = [f" {v[0]}" for v in rc_verb_pairs]
     rc_pl = [f" {v[1]}" for v in rc_verb_pairs]
-    pred_sg = [f" {v[0]}" for v in ES_PRED_VERBS]
-    pred_pl = [f" {v[1]}" for v in ES_PRED_VERBS]
+    pred_sg = [f" {v[0]}" for v in pred_verb_pairs]
+    pred_pl = [f" {v[1]}" for v in pred_verb_pairs]
 
     # All permutations where subject noun != object noun (matching paper: k != i)
     perms = [

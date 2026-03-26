@@ -15,7 +15,7 @@ class TestGetTokenId:
         )
         result = get_token_id(mock_model, "has")
         assert result == 42
-        mock_model.to_tokens.assert_called_once_with("has", prepend_bos=False)
+        mock_model.to_tokens.assert_called_once_with(" has", prepend_bos=False)
 
     def test_multi_token_raises(self, mock_model):
         """A word tokenized into >1 tokens should raise ValueError."""
