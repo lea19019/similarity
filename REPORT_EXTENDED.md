@@ -47,23 +47,35 @@ Spanish shows a strikingly similar pattern to English — the same Layer 13 and 
 
 ![Activation Patching — French](results/figures/fig_patching_fr.png)
 
+French (Romance, like Spanish) shows activity in Layers 12-13 and 15, but more diffuse than English. The patching effects are weaker overall — the model is less confident on French SVA, possibly because French verb morphology is less transparent (many forms sound identical when written differently). The circuit uses the same layers but with more heads contributing smaller amounts.
+
 ### Russian
 
 ![Activation Patching — Russian](results/figures/fig_patching_ru.png)
+
+Russian (Slavic, Cyrillic script) activates Layers 13-15 with moderate patching effects. Despite the completely different script and language family, the circuit occupies the same region of the network as English and Spanish. This is evidence that the SVA circuit location is determined by the model architecture, not by language-specific features.
 
 ### Turkish
 
 ![Activation Patching — Turkish](results/figures/fig_patching_tr.png)
 
+Turkish (Turkic, SOV word order, agglutinative) shows a broader activation pattern across many heads. With only 18 examples (the smallest dataset), individual patching effects are noisier. The circuit appears more distributed — Turkish SVA involves more heads with smaller individual contributions, possibly because the model has less specialized circuitry for this low-resource agglutinative language.
+
 ### Swahili
 
 ![Activation Patching — Swahili](results/figures/fig_patching_sw.png)
+
+Swahili (Bantu, prefix-based agreement) shows moderate patching effects concentrated in Layers 13-15. Despite being a completely different language family with prefix-based (not suffix-based) agreement, the circuit occupies the same network region. This suggests the model uses a universal "agreement" circuit regardless of whether agreement is encoded through prefixes or suffixes.
 
 ### Quechua
 
 ![Activation Patching — Quechua](results/figures/fig_patching_qu.png)
 
-Across all 7 languages, the patching maps share a common structure: Layer 13 consistently contains the highest-importance heads. The non-Indo-European languages (Turkish, Swahili, Quechua) show more distributed patterns with lower peak values, suggesting the model has weaker but still detectable SVA circuits for these low-resource languages.
+Quechua (Quechuan, SOV, agglutinative) with only 60 examples shows detectable but weak patching effects. The model likely has minimal Quechua training data, yet the SVA signal still routes through Layers 12-14. Even for a language the model barely knows, it attempts to use the same circuit architecture.
+
+### Cross-Language Comparison
+
+Across all 7 languages from 5 language families, the patching maps share a common structure: **Layer 13 consistently contains the highest-importance heads**. The circuit is more concentrated (fewer heads, higher values) for well-resourced languages (EN, ES) and more distributed (more heads, lower values) for low-resource languages (TR, QU). This suggests the model develops specialized, efficient circuits for languages it knows well, while using broader, weaker circuits for unfamiliar languages.
 
 ---
 
@@ -82,13 +94,35 @@ The bar charts below show the top 15 heads by absolute contribution for each lan
 
 In both languages, L13H7 and L17H4 have the largest positive DLA (pushing toward the correct verb). Some heads show negative DLA — they actually push toward the *wrong* verb, acting as opposing forces in the circuit.
 
-### Additional Languages
+### French
 
 ![DLA — French](results/figures/fig_dla_fr.png)
+
+French DLA shows a more balanced distribution — more heads contribute moderate amounts rather than a few heads dominating. L13H7 still appears but is not as dominant as in English, suggesting French SVA relies on a more distributed computation.
+
+### Russian
+
 ![DLA — Russian](results/figures/fig_dla_ru.png)
+
+Russian DLA shows strong contributions from L13H7 and L17H4, similar to English, but with additional contributions from L15 heads. The Cyrillic-script language uses the same key heads as Latin-script languages, confirming these are language-independent processing units.
+
+### Turkish
+
 ![DLA — Turkish](results/figures/fig_dla_tr.png)
+
+Turkish DLA contributions are spread across many heads with no single dominant head, consistent with the distributed patching pattern. The model doesn't have a specialized Turkish SVA circuit — it uses a general-purpose set of heads.
+
+### Swahili
+
 ![DLA — Swahili](results/figures/fig_dla_sw.png)
+
+Swahili shows moderate DLA values with L13H7 and L17H4 still prominent. The prefix-based agreement system (a- for singular, wa- for plural) produces a detectable signal through the same heads that handle English suffix-based agreement.
+
+### Quechua
+
 ![DLA — Quechua](results/figures/fig_dla_qu.png)
+
+Quechua DLA shows weak but detectable contributions, consistent with the model's limited training data for this language.
 
 ---
 
@@ -114,15 +148,41 @@ The English weight map shows L0H5 (importance 5.77) and L0H3 (3.31) as the most 
 
 Spanish shows the same L0H5/L0H3 dominance but with much higher values (19.15 and 15.96). The scale difference from English suggests the unembedding direction for Spanish verb pairs is more aligned with these early-layer weight matrices.
 
-### All 7 Languages Compared
+### French
 
 ![Weight Importance — French](results/figures/fig_weight_importance_fr.png)
+
+French weight importance (max 20.13 at L0H5) closely mirrors Spanish — both Romance languages have nearly identical weight importance profiles. This makes sense: their verb systems are related, so the unembedding directions for French and Spanish verb pairs point in similar directions in the model's internal space.
+
+### Russian
+
 ![Weight Importance — Russian](results/figures/fig_weight_importance_ru.png)
+
+Russian (max 10.41 at L0H3) shows lower values than the Romance languages but the same Layer 0 dominance. Notably, L0H3 edges out L0H5 in Russian — the only language where this happens. The Cyrillic verb tokens may have unembedding vectors that align slightly differently with the Layer 0 heads.
+
+### Turkish
+
 ![Weight Importance — Turkish](results/figures/fig_weight_importance_tr.png)
+
+Turkish (max 17.81 at L0H3) shows high values despite being a low-resource language. This is a weight-level analysis — it doesn't depend on how much Turkish data the model saw, only on how the weight matrices relate to the Turkish verb unembedding direction. The weights are structurally aligned even if the model rarely activates them for Turkish.
+
+### Swahili
+
 ![Weight Importance — Swahili](results/figures/fig_weight_importance_sw.png)
+
+Swahili has the second-highest values of any language (max 39.39 at L0H5). This may seem paradoxical for a low-resource language, but it reflects the structure of Swahili verb tokens in the embedding space — the a-/wa- prefix distinction produces unembedding vectors that are strongly aligned with Layer 0 head weights.
+
+### Quechua
+
 ![Weight Importance — Quechua](results/figures/fig_weight_importance_qu.png)
 
+Quechua shows the highest values overall (max 39.56 at L0H5), similar to Swahili. Both are agglutinative languages with distinctive morphological markers that produce well-separated unembedding vectors.
+
+### Cross-Language Comparison
+
 **Key finding**: L0H5 and L0H3 are the top 2 heads in every single language. The weight importance maps are more uniform across languages than the patching maps — the model's weight structure contains a universal SVA-aligned subspace that all languages share, even though the activation-level circuits vary.
+
+The scale varies dramatically: English peaks at 5.77 while Quechua peaks at 39.56. This doesn't mean Quechua has a "stronger" circuit — it means the Quechua verb token pairs have unembedding vectors that are more aligned with the Layer 0 weight matrices. The relative pattern (which heads are important) is consistent; the absolute scale depends on the language's tokenization.
 
 ---
 
