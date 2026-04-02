@@ -2,8 +2,10 @@
 from pathlib import Path
 
 from circuits.config import (
+    ALL_LANGS,
     DATA_DIR,
     FIGURES_DIR,
+    LANG_CONFIGS,
     MODEL_CONFIGS,
     PROJECT_ROOT,
     RESULTS_DIR,
@@ -79,3 +81,32 @@ class TestModelConfigs:
         assert cfg["d_model"] == 2048
         assert cfg["key_head"] == (13, 7)
         assert len(cfg["key_neurons"]) == 2
+
+
+class TestLangConfigs:
+    def test_has_all_seven_languages(self):
+        assert set(LANG_CONFIGS.keys()) == {"en", "es", "fr", "ru", "tr", "sw", "qu"}
+
+    def test_each_lang_has_required_fields(self):
+        for lang, cfg in LANG_CONFIGS.items():
+            assert "name" in cfg, f"{lang} missing 'name'"
+            assert "family" in cfg, f"{lang} missing 'family'"
+            assert "order" in cfg, f"{lang} missing 'order'"
+
+    def test_all_langs_matches_keys(self):
+        assert ALL_LANGS == list(LANG_CONFIGS.keys())
+
+    def test_french_is_romance(self):
+        assert LANG_CONFIGS["fr"]["family"] == "Romance"
+
+    def test_russian_is_slavic(self):
+        assert LANG_CONFIGS["ru"]["family"] == "Slavic"
+
+    def test_turkish_is_multi_token(self):
+        assert LANG_CONFIGS["tr"]["multi_token"] is True
+
+    def test_english_is_not_multi_token(self):
+        assert LANG_CONFIGS["en"]["multi_token"] is False
+
+    def test_quechua_is_quechuan(self):
+        assert LANG_CONFIGS["qu"]["family"] == "Quechuan"

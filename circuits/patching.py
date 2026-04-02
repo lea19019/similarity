@@ -13,7 +13,7 @@ from tqdm import tqdm
 from transformer_lens import HookedTransformer
 
 from circuits.config import DATA_DIR, RESULTS_DIR
-from circuits.model import load_model, tokenize_pair
+from circuits.model import load_model, tokenize_pair, is_multi_token_lang
 from circuits.metrics import logit_diff, normalized_patch_effect
 from circuits.data import load_sva_dataset
 
@@ -105,7 +105,8 @@ def run_patching(
 
 def _tokenize_example(model, ex: dict, use_corrupted: bool = False):
     prompt = ex["corrupted"] if use_corrupted else ex["clean"]
-    return tokenize_pair(model, prompt, ex["good_verb"], ex["bad_verb"])
+    mt = is_multi_token_lang(ex.get("lang", "en"))
+    return tokenize_pair(model, prompt, ex["good_verb"], ex["bad_verb"], multi_token=mt)
 
 
 def _patch_hook(
@@ -162,7 +163,7 @@ def save_results(results: dict, out_path: Path) -> None:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lang", choices=["en", "es"], required=True)
+    parser.add_argument("--lang", choices=["en", "es", "fr", "ru", "tr", "sw", "qu"], required=True)
     parser.add_argument("--model", default="gemma-2b")
     parser.add_argument("--data-dir", default=str(DATA_DIR))
     parser.add_argument("--out-dir", default=str(RESULTS_DIR))

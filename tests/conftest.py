@@ -54,6 +54,34 @@ def tmp_jsonl(tmp_path, sample_examples):
 
 
 @pytest.fixture
+def sample_fr_examples():
+    """A small list of French SVA examples."""
+    return [
+        {
+            "clean": "Le professeur qui voit le client est",
+            "corrupted": "Les professeurs qui voient le client sont",
+            "good_verb": "est",
+            "bad_verb": "sont",
+            "lang": "fr",
+        },
+    ]
+
+
+@pytest.fixture
+def sample_ru_examples():
+    """A small list of Russian SVA examples."""
+    return [
+        {
+            "clean": "Учитель который видел директора был",
+            "corrupted": "Учителя которые видели директора были",
+            "good_verb": "был",
+            "bad_verb": "были",
+            "lang": "ru",
+        },
+    ]
+
+
+@pytest.fixture
 def mock_model():
     """
     A mock HookedTransformer that supports to_tokens and basic config.
@@ -128,5 +156,48 @@ def steering_npz(tmp_path):
         "flip_rate_neg": np.array([0.0, 0.05, 0.15, 0.35]),
     }
     p = tmp_path / "steering_test.npz"
+    np.savez(p, **data)
+    return p, data
+
+
+@pytest.fixture
+def circuit_map_npz(tmp_path):
+    """Create a mock circuit_map results .npz file."""
+    n_layers, n_heads, d_model = 4, 4, 64
+    data = {
+        "head_importance": np.random.rand(n_layers, n_heads).astype(np.float64),
+        "mlp_importance": np.random.rand(n_layers).astype(np.float64),
+        "head_task_weights": np.random.randn(n_layers, n_heads, d_model).astype(np.float64),
+        "svd_spectra": np.sort(np.random.rand(n_layers, n_heads, 10))[:, :, ::-1].copy().astype(np.float64),
+    }
+    p = tmp_path / "circuit_map_test.npz"
+    np.savez(p, **data)
+    return p, data
+
+
+@pytest.fixture
+def edge_patching_npz(tmp_path):
+    """Create a mock edge patching results .npz file."""
+    n_components = 4 * 4 + 4  # heads + MLPs
+    labels = [f"L{l}H{h}" for l in range(4) for h in range(4)] + [f"MLP{l}" for l in range(4)]
+    data = {
+        "node_scores": np.random.rand(n_components).astype(np.float64),
+        "edge_scores": np.random.rand(n_components, n_components).astype(np.float64),
+        "component_labels": np.array(labels),
+    }
+    p = tmp_path / "edge_patching_test.npz"
+    np.savez(p, **data)
+    return p, data
+
+
+@pytest.fixture
+def geometry_npz(tmp_path):
+    """Create a mock geometry results .npz file."""
+    n_layers, n_langs = 4, 4
+    data = {
+        "cka_per_layer": np.random.rand(n_layers, n_langs, n_langs).astype(np.float64),
+        "convergence": np.random.rand(n_layers).astype(np.float64),
+    }
+    p = tmp_path / "geometry_test.npz"
     np.savez(p, **data)
     return p, data

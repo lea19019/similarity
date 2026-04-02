@@ -14,7 +14,7 @@ from tqdm import tqdm
 from transformer_lens import HookedTransformer
 
 from circuits.config import DATA_DIR, RESULTS_DIR
-from circuits.model import load_model, tokenize_pair
+from circuits.model import load_model, tokenize_pair, is_multi_token_lang
 from circuits.data import load_sva_dataset
 
 
@@ -42,8 +42,9 @@ def steer_and_measure(
     total = 0
 
     for ex in examples:
+        mt = is_multi_token_lang(ex.get("lang", "en"))
         tokens, good_id, bad_id = tokenize_pair(
-            model, ex["clean"], ex["good_verb"], ex["bad_verb"]
+            model, ex["clean"], ex["good_verb"], ex["bad_verb"], multi_token=mt
         )
         tokens = tokens.to(device)
 
@@ -86,15 +87,16 @@ def main():
     parser.add_argument("--layer", type=int, default=13)
     parser.add_argument("--head", type=int, default=7)
     parser.add_argument("--pca-path", default=str(RESULTS_DIR / "pca_L13H7.npz"))
-    parser.add_argument("--es-data", default=str(DATA_DIR / "es_sva.jsonl"))
+    parser.add_argument("--target-data", default=str(DATA_DIR / "es_sva.jsonl"),
+                        help="Path to target language dataset (default: Spanish)")
+    parser.add_argument("--target-lang", default=None,
+                        help="Target language code for output naming (auto-detected if omitted)")
     parser.add_argument("--alphas", type=float, nargs="+",
                         default=[0.0, 5.0, 10.0, 20.0, 30.0, 50.0])
     parser.add_argument("--out-dir", default=str(RESULTS_DIR))
     parser.add_argument("--device", default="cuda")
-    # Paper uses 50 English examples for PC1 extraction and evaluates steering
-    # on the Spanish test split
     parser.add_argument("--max-examples", type=int, default=None,
-                        help="Max Spanish examples for steering evaluation")
+                        help="Max target examples for steering evaluation")
     args = parser.parse_args()
 
     # Load the PC1 direction extracted from English (or bilingual) head outputs
@@ -102,11 +104,13 @@ def main():
     pc1 = pca_data["pc1"]
 
     model = load_model(args.model, device=args.device)
-    # Steer on Spanish data to test cross-lingual transfer of the number direction
-    dataset = load_sva_dataset(args.es_data)
+    dataset = load_sva_dataset(args.target_data)
     if args.max_examples and len(dataset) > args.max_examples:
         dataset = dataset[:args.max_examples]
-        print(f"Using {len(dataset)} Spanish examples for steering")
+        print(f"Using {len(dataset)} examples for steering")
+
+    # Auto-detect target language from dataset
+    target_lang = args.target_lang or dataset[0].get("lang", "target")
 
     results = {"alphas": [], "flip_rate_pos": [], "flip_rate_neg": []}
 
@@ -122,7 +126,7 @@ def main():
         results["flip_rate_neg"].append(flip_neg)
         print(f"  α={alpha:.1f}  flip(+)={flip_pos:.3f}  flip(-)={flip_neg:.3f}")
 
-    out_path = Path(args.out_dir) / "steering.npz"
+    out_path = Path(args.out_dir) / f"steering_{target_lang}.npz"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(out_path, **{k: np.array(v) for k, v in results.items()})
     print(f"Saved steering results → {out_path}")

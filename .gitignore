@@ -7,10 +7,11 @@ __pycache__/
 # uv
 uv.lock
 
-# Data & results
+# Data & results (large files — regenerate with pipeline scripts)
 data/processed/
 results/
 logs/
+*.npz
 
 # OS
 .DS_Store

@@ -13,7 +13,7 @@ from tqdm import tqdm
 from transformer_lens import HookedTransformer
 
 from circuits.config import DATA_DIR, RESULTS_DIR
-from circuits.model import load_model, tokenize_pair
+from circuits.model import load_model, tokenize_pair, is_multi_token_lang
 from circuits.data import load_sva_dataset
 
 
@@ -34,8 +34,9 @@ def compute_neuron_dla(
     count = 0
 
     for ex in tqdm(examples, desc="Neuron DLA"):
+        mt = is_multi_token_lang(ex.get("lang", "en"))
         tokens, good_id, bad_id = tokenize_pair(
-            model, ex["clean"], ex["good_verb"], ex["bad_verb"]
+            model, ex["clean"], ex["good_verb"], ex["bad_verb"], multi_token=mt
         )
         unembed_dir = (W_U[:, good_id] - W_U[:, bad_id]).float()
 
@@ -68,7 +69,7 @@ def compute_neuron_dla(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lang", choices=["en", "es"], required=True)
+    parser.add_argument("--lang", choices=["en", "es", "fr", "ru", "tr", "sw", "qu"], required=True)
     parser.add_argument("--model", default="gemma-2b")
     # Layers 13 and 17 are the defaults because they contain the neurons with
     # highest DLA for SVA in gemma-2b (neuron 2069@MLP13, neuron 1138@MLP17)

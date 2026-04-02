@@ -6,6 +6,21 @@ DATA_DIR = PROJECT_ROOT / "data" / "processed"
 RESULTS_DIR = PROJECT_ROOT / "results"
 FIGURES_DIR = RESULTS_DIR / "figures"
 
+# Language registry for cross-lingual experiments
+# Single-token languages (EN/ES/FR/RU) use exact verb token matching.
+# Multi-token languages (TR/SW/QU) use first-subword token matching.
+LANG_CONFIGS = {
+    "en": {"name": "English", "family": "Germanic", "order": "SVO", "multi_token": False},
+    "es": {"name": "Spanish", "family": "Romance", "order": "SVO", "multi_token": False},
+    "fr": {"name": "French", "family": "Romance", "order": "SVO", "multi_token": False},
+    "ru": {"name": "Russian", "family": "Slavic", "order": "SVO", "multi_token": False},
+    "tr": {"name": "Turkish", "family": "Turkic", "order": "SOV", "multi_token": True},
+    "sw": {"name": "Swahili", "family": "Bantu", "order": "SVO", "multi_token": True},
+    "qu": {"name": "Quechua", "family": "Quechuan", "order": "SOV", "multi_token": True},
+}
+
+ALL_LANGS = list(LANG_CONFIGS.keys())
+
 MODEL_CONFIGS = {
     "gemma-2b": {
         "hf_name": "google/gemma-2b",

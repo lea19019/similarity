@@ -14,7 +14,7 @@ from tqdm import tqdm
 from transformer_lens import HookedTransformer
 
 from circuits.config import DATA_DIR, RESULTS_DIR
-from circuits.model import load_model, tokenize_pair
+from circuits.model import load_model, tokenize_pair, is_multi_token_lang
 from circuits.data import load_sva_dataset
 
 
@@ -39,7 +39,8 @@ def collect_head_outputs(
         # label=1) outputs so PCA can find the direction that separates them
         for use_corrupted, label in [(False, 0), (True, 1)]:
             prompt = ex["corrupted"] if use_corrupted else ex["clean"]
-            tokens, _, _ = tokenize_pair(model, prompt, ex["good_verb"], ex["bad_verb"])
+            mt = is_multi_token_lang(ex.get("lang", "en"))
+            tokens, _, _ = tokenize_pair(model, prompt, ex["good_verb"], ex["bad_verb"], multi_token=mt)
 
             with torch.no_grad():
                 _, cache = model.run_with_cache(tokens, names_filter=[hook_name])
@@ -66,7 +67,9 @@ def fit_pca(vectors: np.ndarray) -> PCA:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lang", choices=["en", "es", "both"], default="both")
+    parser.add_argument("--lang", choices=["en", "es", "fr", "ru", "tr", "sw", "qu", "both", "all"],
+                        default="both",
+                        help="Language(s). 'both'=en+es, 'all'=en+es+tr+sw")
     parser.add_argument("--model", default="gemma-2b")
     parser.add_argument("--layer", type=int, default=13)
     parser.add_argument("--head", type=int, default=7)
@@ -83,7 +86,12 @@ def main():
 
     all_vectors, all_labels, all_langs = [], [], []
 
-    langs_to_use = ["en", "es"] if args.lang == "both" else [args.lang]
+    if args.lang == "both":
+        langs_to_use = ["en", "es"]
+    elif args.lang == "all":
+        langs_to_use = ["en", "es", "fr", "ru", "tr", "sw", "qu"]
+    else:
+        langs_to_use = [args.lang]
     for lang in langs_to_use:
         dataset = load_sva_dataset(f"{args.data_dir}/{lang}_sva.jsonl")
         if args.max_examples and len(dataset) > args.max_examples:

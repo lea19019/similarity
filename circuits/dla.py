@@ -13,7 +13,7 @@ from tqdm import tqdm
 from transformer_lens import HookedTransformer
 
 from circuits.config import DATA_DIR, RESULTS_DIR
-from circuits.model import load_model, tokenize_pair
+from circuits.model import load_model, tokenize_pair, is_multi_token_lang
 from circuits.data import load_sva_dataset
 
 
@@ -42,8 +42,9 @@ def compute_dla(
     W_U = model.W_U  # (d_model, vocab_size) — the unembedding matrix
 
     for ex in tqdm(examples, desc="DLA"):
+        mt = is_multi_token_lang(ex.get("lang", "en"))
         tokens, good_id, bad_id = tokenize_pair(
-            model, ex["clean"], ex["good_verb"], ex["bad_verb"]
+            model, ex["clean"], ex["good_verb"], ex["bad_verb"], multi_token=mt
         )
 
         with torch.no_grad():
@@ -83,7 +84,7 @@ def compute_dla(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lang", choices=["en", "es"], required=True)
+    parser.add_argument("--lang", choices=["en", "es", "fr", "ru", "tr", "sw", "qu"], required=True)
     parser.add_argument("--model", default="gemma-2b")
     parser.add_argument("--data-dir", default=str(DATA_DIR))
     parser.add_argument("--out-dir", default=str(RESULTS_DIR))

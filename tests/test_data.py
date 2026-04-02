@@ -9,8 +9,29 @@ from circuits.data import (
     ES_NOUNS,
     ES_RC_VERBS,
     ES_PRED_VERBS,
+    FR_NOUNS,
+    FR_RC_VERBS,
+    FR_PRED_VERBS,
+    RU_NOUNS,
+    RU_RC_VERBS,
+    RU_PRED_VERBS,
+    TR_NOUNS,
+    TR_RC_VERBS,
+    TR_PRED_VERBS,
+    SW_NOUNS,
+    SW_RC_VERBS,
+    SW_PRED_VERBS,
+    QU_NOUNS,
+    QU_RC_VERBS,
+    QU_PRED_VERBS,
     _build_english_dataset,
     _build_spanish_dataset,
+    _build_french_dataset,
+    _build_russian_dataset,
+    _build_turkish_dataset,
+    _build_swahili_dataset,
+    _build_quechua_dataset,
+    _filter_first_token_pairs,
     _filter_english_verbs,
     _filter_word_pairs,
     load_sva_dataset,
@@ -160,6 +181,190 @@ class TestSaveAndLoadDataset:
         loaded = load_sva_dataset(str(tmp_jsonl))
         assert len(loaded) == len(sample_examples)
         assert loaded[0]["good_verb"] == sample_examples[0]["good_verb"]
+
+
+# ── Subword filtering ────────────────────────────────────────────────────────
+
+# ── French (template-based) ───────────────────────────────────────────────
+
+class TestBuildFrenchDataset:
+    @patch("circuits.data._filter_word_pairs")
+    def test_returns_nonempty_list(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_french_dataset("gemma-2b")
+        assert len(examples) > 0
+
+    @patch("circuits.data._filter_word_pairs")
+    def test_all_lang_tr(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_french_dataset("gemma-2b")
+        assert all(ex["lang"] == "fr" for ex in examples)
+
+    @patch("circuits.data._filter_word_pairs")
+    def test_has_required_keys(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_french_dataset("gemma-2b")
+        required = {"clean", "corrupted", "good_verb", "bad_verb", "lang", "split"}
+        for ex in examples[:5]:
+            assert set(ex.keys()) == required
+
+    @patch("circuits.data._filter_word_pairs")
+    def test_has_train_val_test_splits(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:5]
+        examples = _build_french_dataset("gemma-2b")
+        splits = {ex["split"] for ex in examples}
+        assert "train" in splits
+
+    @patch("circuits.data._filter_word_pairs")
+    def test_pred_verbs_used(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:4]
+        examples = _build_french_dataset("gemma-2b")
+        valid_pred = {v for pair in FR_PRED_VERBS for v in pair}
+        for ex in examples:
+            assert ex["good_verb"] in valid_pred
+            assert ex["bad_verb"] in valid_pred
+
+    def test_word_lists_nonempty(self):
+        assert len(FR_NOUNS) >= 10
+        assert len(FR_RC_VERBS) >= 10
+        assert len(FR_PRED_VERBS) >= 3
+
+
+# ── Russian (template-based) ──────────────────────────────────────────────
+
+class TestBuildRussianDataset:
+    @patch("circuits.data._filter_word_pairs")
+    def test_returns_nonempty_list(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_russian_dataset("gemma-2b")
+        assert len(examples) > 0
+
+    @patch("circuits.data._filter_word_pairs")
+    def test_all_lang_sw(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_russian_dataset("gemma-2b")
+        assert all(ex["lang"] == "ru" for ex in examples)
+
+    @patch("circuits.data._filter_word_pairs")
+    def test_has_required_keys(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_russian_dataset("gemma-2b")
+        required = {"clean", "corrupted", "good_verb", "bad_verb", "lang", "split"}
+        for ex in examples[:5]:
+            assert set(ex.keys()) == required
+
+    @patch("circuits.data._filter_word_pairs")
+    def test_has_train_val_test_splits(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:5]
+        examples = _build_russian_dataset("gemma-2b")
+        splits = {ex["split"] for ex in examples}
+        assert "train" in splits
+
+    @patch("circuits.data._filter_word_pairs")
+    def test_pred_verbs_used(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:4]
+        examples = _build_russian_dataset("gemma-2b")
+        valid_pred = {v for pair in RU_PRED_VERBS for v in pair}
+        for ex in examples:
+            assert ex["good_verb"] in valid_pred
+            assert ex["bad_verb"] in valid_pred
+
+    def test_word_lists_nonempty(self):
+        assert len(RU_NOUNS) >= 5
+        assert len(RU_RC_VERBS) >= 10
+        assert len(RU_PRED_VERBS) >= 3
+
+
+# ── Turkish (template-based, multi-token) ──────────────────────────────────
+
+class TestBuildTurkishDataset:
+    @patch("circuits.data._filter_first_token_pairs")
+    def test_returns_nonempty_list(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_turkish_dataset("gemma-2b")
+        assert len(examples) > 0
+
+    @patch("circuits.data._filter_first_token_pairs")
+    def test_all_lang_tr(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_turkish_dataset("gemma-2b")
+        assert all(ex["lang"] == "tr" for ex in examples)
+
+    def test_word_lists_nonempty(self):
+        assert len(TR_NOUNS) >= 3
+        assert len(TR_RC_VERBS) >= 5
+        assert len(TR_PRED_VERBS) >= 5
+
+
+class TestBuildSwahiliDataset:
+    @patch("circuits.data._filter_first_token_pairs")
+    def test_returns_nonempty_list(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_swahili_dataset("gemma-2b")
+        assert len(examples) > 0
+
+    @patch("circuits.data._filter_first_token_pairs")
+    def test_all_lang_sw(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_swahili_dataset("gemma-2b")
+        assert all(ex["lang"] == "sw" for ex in examples)
+
+    def test_word_lists_nonempty(self):
+        assert len(SW_NOUNS) >= 10
+        assert len(SW_RC_VERBS) >= 10
+        assert len(SW_PRED_VERBS) >= 3
+
+
+class TestBuildQuechuaDataset:
+    @patch("circuits.data._filter_first_token_pairs")
+    def test_returns_nonempty_list(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_quechua_dataset("gemma-2b")
+        assert len(examples) > 0
+
+    @patch("circuits.data._filter_first_token_pairs")
+    def test_all_lang_qu(self, mock_filter):
+        mock_filter.side_effect = lambda pairs, model_key: pairs[:3]
+        examples = _build_quechua_dataset("gemma-2b")
+        assert all(ex["lang"] == "qu" for ex in examples)
+
+    def test_word_lists_nonempty(self):
+        assert len(QU_NOUNS) >= 3
+        assert len(QU_RC_VERBS) >= 3
+        assert len(QU_PRED_VERBS) >= 3
+
+
+# ── First-token filtering ─────────────────────────────────────────────────
+
+class TestFilterFirstTokenPairs:
+    @patch("transformers.AutoTokenizer")
+    def test_keeps_different_first_tokens(self, mock_auto_tok):
+        mock_tokenizer = MagicMock()
+        def fake_encode(word, add_special_tokens=False):
+            w = word.strip()
+            if w == "cat":
+                return [100, 200]
+            elif w == "dogs":
+                return [300, 200]
+            return [400]
+        mock_tokenizer.encode = MagicMock(side_effect=fake_encode)
+        mock_auto_tok.from_pretrained.return_value = mock_tokenizer
+
+        pairs = [("cat", "dogs")]
+        result = _filter_first_token_pairs(pairs, "gemma-2b")
+        assert len(result) == 1
+
+    @patch("transformers.AutoTokenizer")
+    def test_filters_same_first_tokens(self, mock_auto_tok):
+        mock_tokenizer = MagicMock()
+        def fake_encode(word, add_special_tokens=False):
+            return [100, 200]  # same first token
+        mock_tokenizer.encode = MagicMock(side_effect=fake_encode)
+        mock_auto_tok.from_pretrained.return_value = mock_tokenizer
+
+        pairs = [("nemi", "nemih")]
+        result = _filter_first_token_pairs(pairs, "gemma-2b")
+        assert len(result) == 0
 
 
 # ── Subword filtering ────────────────────────────────────────────────────────
