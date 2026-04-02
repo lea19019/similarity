@@ -171,6 +171,77 @@ def plot_convergence_curve(geometry_npz_path: str, out_path: str) -> None:
     print(f"Saved → {out_path}")
 
 
+def plot_logit_lens(npz_path: str, out_path: str, title: str = "") -> None:
+    """Line plot of mean logit diff and P(correct) across layers."""
+    data = np.load(npz_path)
+    mean_ld = data["mean_logit_diff"]
+    mean_prob = data["mean_correct_prob"]
+    layers = list(range(len(mean_ld)))
+
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    ax1.plot(layers, mean_ld, "o-", color="steelblue", label="Logit diff")
+    ax1.set_xlabel("Layer")
+    ax1.set_ylabel("Mean logit diff", color="steelblue")
+    ax1.tick_params(axis="y", labelcolor="steelblue")
+
+    ax2 = ax1.twinx()
+    ax2.plot(layers, mean_prob, "s-", color="tomato", label="P(correct)")
+    ax2.set_ylabel("P(correct verb)", color="tomato")
+    ax2.tick_params(axis="y", labelcolor="tomato")
+
+    ax1.set_title(title or "Logit Lens — prediction formation by layer")
+    fig.legend(loc="upper left", bbox_to_anchor=(0.12, 0.88))
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close()
+    print(f"Saved → {out_path}")
+
+
+def plot_attention_subject(npz_path: str, out_path: str, title: str = "") -> None:
+    """Heatmap of subject attention scores per head."""
+    data = np.load(npz_path)
+    subject_attn = data["subject_attention"]
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sns.heatmap(subject_attn, ax=ax, cmap="YlOrRd",
+                xticklabels=range(subject_attn.shape[1]),
+                yticklabels=range(subject_attn.shape[0]))
+    ax.set_xlabel("Head")
+    ax.set_ylabel("Layer")
+    ax.set_title(title or "Subject attention from verb position")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close()
+    print(f"Saved → {out_path}")
+
+
+def plot_knockout_summary(knockout_data: dict, out_path: str) -> None:
+    """Bar chart comparing baseline, necessity, and sufficiency across languages."""
+    langs = sorted(knockout_data.keys())
+    baseline = [knockout_data[l]["baseline"] for l in langs]
+    necessity = [knockout_data[l]["necessity"] for l in langs]
+    sufficiency = [knockout_data[l]["sufficiency"] for l in langs]
+
+    x = np.arange(len(langs))
+    width = 0.25
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.bar(x - width, baseline, width, label="Baseline", color="steelblue")
+    ax.bar(x, necessity, width, label="Ablate circuit", color="tomato")
+    ax.bar(x + width, sufficiency, width, label="Ablate complement", color="seagreen")
+
+    ax.set_ylabel("Accuracy")
+    ax.set_title("Circuit Knockout — Necessity and Sufficiency")
+    ax.set_xticks(x)
+    ax.set_xticklabels([l.upper() for l in langs])
+    ax.legend()
+    ax.set_ylim(0, 1.1)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close()
+    print(f"Saved → {out_path}")
+
+
 def plot_eap_comparison(npz_paths: dict, out_path: str, top_k: int = 15) -> None:
     """Side-by-side bar chart of top EAP scores for multiple languages."""
     fig, axes = plt.subplots(1, len(npz_paths), figsize=(6 * len(npz_paths), 5), sharey=True)
@@ -226,8 +297,8 @@ def main():
     if (r / "steering.npz").exists():
         plot_steering(r / "steering.npz", o / "fig6_steering.png")
 
-    # New language patching/DLA
-    for lang in ["tr", "sw"]:
+    # All languages patching/DLA
+    for lang in ALL_LANGS:
         if (r / f"patching_{lang}.npz").exists():
             name = LANG_CONFIGS.get(lang, {}).get("name", lang.upper())
             plot_head_patching(r / f"patching_{lang}.npz",
@@ -237,6 +308,13 @@ def main():
             name = LANG_CONFIGS.get(lang, {}).get("name", lang.upper())
             plot_dla(r / f"dla_{lang}.npz", o / f"fig_dla_{lang}.png",
                      title=f"DLA — {name} SVA")
+
+    # Steering for all target languages
+    for lang in ALL_LANGS:
+        if (r / f"steering_{lang}.npz").exists():
+            name = LANG_CONFIGS.get(lang, {}).get("name", lang.upper())
+            plot_steering(str(r / f"steering_{lang}.npz"),
+                          str(o / f"fig_steering_{lang}.png"))
 
     # Weight importance heatmaps
     for lang in ALL_LANGS:
@@ -263,6 +341,36 @@ def main():
     # Convergence curve
     if (r / "geometry.npz").exists():
         plot_convergence_curve(str(r / "geometry.npz"), str(o / "fig_convergence.png"))
+
+    # Logit lens per language
+    for lang in ALL_LANGS:
+        ll_path = r / f"logit_lens_{lang}.npz"
+        if ll_path.exists():
+            name = LANG_CONFIGS.get(lang, {}).get("name", lang.upper())
+            plot_logit_lens(str(ll_path), str(o / f"fig_logit_lens_{lang}.png"),
+                            title=f"Logit Lens — {name}")
+
+    # Attention subject scores per language
+    for lang in ALL_LANGS:
+        attn_path = r / f"attention_{lang}.npz"
+        if attn_path.exists():
+            name = LANG_CONFIGS.get(lang, {}).get("name", lang.upper())
+            plot_attention_subject(str(attn_path), str(o / f"fig_attention_{lang}.png"),
+                                   title=f"Subject Attention — {name}")
+
+    # Knockout summary
+    knockout_data = {}
+    for lang in ALL_LANGS:
+        ko_path = r / f"knockout_{lang}.npz"
+        if ko_path.exists():
+            ko = np.load(ko_path)
+            knockout_data[lang] = {
+                "baseline": float(ko["baseline_accuracy"]),
+                "necessity": float(ko["necessity_accuracy"]),
+                "sufficiency": float(ko["sufficiency_accuracy"]),
+            }
+    if knockout_data:
+        plot_knockout_summary(knockout_data, str(o / "fig_knockout_summary.png"))
 
 
 if __name__ == "__main__":

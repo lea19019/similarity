@@ -9,9 +9,12 @@ uv.lock
 
 # Data & results (large files — regenerate with pipeline scripts)
 data/processed/
-results/
+results/*.npz
 logs/
 *.npz
+
+# Keep figures for the report
+!results/figures/
 
 # OS
 .DS_Store
