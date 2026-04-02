@@ -9,203 +9,284 @@ This project extends the work of Ferrando & Costa-jussà (2024) on cross-lingual
 
 ### Languages Analyzed
 
-| Language | Family | Script | Examples | Token Mode | SVA Type |
-|----------|--------|--------|----------|------------|----------|
-| English | Germanic | Latin | 536 | single-token | SVO, suffix |
-| Spanish | Romance | Latin | 5,684 | single-token | SVO, suffix |
-| French | Romance | Latin | 2,496 | single-token | SVO, suffix |
-| Russian | Slavic | Cyrillic | 260 | single-token | SVO, suffix |
-| Turkish | Turkic | Latin | 18 | first-subword | SOV, agglutinative |
-| Swahili | Bantu | Latin | 2,366 | first-subword | SVO, prefix |
-| Quechua | Quechuan | Latin | 60 | first-subword | SOV, agglutinative |
+| Language | Family | Script | Examples | Token Mode |
+|----------|--------|--------|----------|------------|
+| English | Germanic | Latin | 536 | single-token |
+| Spanish | Romance | Latin | 5,684 | single-token |
+| French | Romance | Latin | 2,496 | single-token |
+| Russian | Slavic | Cyrillic | 260 | single-token |
+| Turkish | Turkic | Latin | 18 | first-subword |
+| Swahili | Bantu | Latin | 2,366 | first-subword |
+| Quechua | Quechuan | Latin | 60 | first-subword |
+
+For languages with agglutinative morphology (Turkish, Swahili, Quechua), plural forms tokenize into multiple subwords in Gemma's tokenizer. We adapted all experiments to use **first-subword token matching**: comparing the first subword token of singular vs plural verb forms, which differ due to prefix changes (Swahili a-/wa-) or stem differences. This extends the methodology beyond the single-token constraint of the original paper.
 
 ---
 
-## Methods
+## 1. Activation Patching — Which Components Are Causally Important?
 
-### Replication (Ferrando & Costa-jussà, 2024)
+**What this experiment does**: A transformer model processes text through 18 layers, each containing 8 attention heads. We want to know which of these 144 heads are actually responsible for making the model predict the correct verb form. To test this, we use a technique called "activation patching" (also known as denoising).
 
-1. **Activation patching** (denoising): Run corrupted input, replace one component's activation with its clean-run value, measure recovery of correct verb prediction. Identifies causally important heads/MLPs.
+Here's the idea: we create two versions of the same sentence — one with a singular subject ("The doctor that helped the teacher **is**") and one corrupted with a plural subject ("The doctors that helped the teacher **are**"). We run the model on the corrupted input, which makes it predict the wrong verb. Then, one head at a time, we swap in that head's activation from the clean (correct) run. If swapping in head X's clean activation fixes the prediction, that head is causally important for SVA — it's the one carrying the number signal.
 
-2. **Direct logit attribution (DLA)**: Decompose the logit difference into additive per-component contributions by projecting each head/MLP output onto the verb-number unembedding direction. Exact decomposition, no approximation.
+Each cell in the heatmap below shows the "recovery score" for that head: 1.0 = fully restores the correct prediction, 0 = does nothing. This gives us a causal importance map of the entire model.
 
-3. **PCA on L13H7 outputs**: Extract the subject-number direction from the key attention head's output space. PC1 separates singular from plural across languages.
+### English
 
-4. **Cross-lingual activation steering**: Add the English-derived PC1 direction to target-language forward passes and measure verb prediction flips.
+![Activation Patching — English](results/figures/fig_patching_en.png)
 
-### Extensions
+The English patching map shows a clear circuit concentrated in **Layer 13** (L13H0, L13H4, L13H5, L13H7) and **Layer 17** (L17H3, L17H4). L13H7 is the key head identified by Ferrando & Costa-jussà — our replication confirms it. The circuit is sparse: most heads contribute nothing, while a handful carry the entire SVA signal.
 
-5. **Edge Attribution Patching (EAP)**: Gradient-based approximation of activation patching using 2 forward passes + 1 backward pass instead of O(layers × heads) forward passes. Based on Syed et al. (2023).
+### Spanish
 
-6. **Weight-level circuit map**: For every attention head, compute OV matrix (W_V @ W_O), decompose via SVD, and project onto the task-relevant unembedding direction. Produces per-weight importance scores for all 150M attention weights.
+![Activation Patching — Spanish](results/figures/fig_patching_es.png)
 
-7. **Cross-layer connection map**: Measure how each head's output aligns with downstream heads' task-relevant input, revealing the circuit's wiring diagram through the residual stream.
+Spanish shows a strikingly similar pattern to English — the same Layer 13 and Layer 17 heads light up. This confirms the original paper's finding: the SVA circuit is shared across languages.
 
-8. **Cross-lingual geometry comparison**: CKA (Centered Kernel Alignment), SVCCA (Singular Vector Canonical Correlation Analysis), RSA (Representational Similarity Analysis), and Procrustes alignment across all language pairs at every layer.
+### French
 
-9. **Wanda-style importance**: Activation-weighted importance (|W| × ||X||) as the standard pruning baseline, following Wanda (Sun et al., 2024).
+![Activation Patching — French](results/figures/fig_patching_fr.png)
 
-10. **Attention pattern analysis**: Extract attention matrices showing what each head attends to from the verb prediction position. Identifies which heads read the subject noun.
+### Russian
 
-11. **Logit lens**: Project residual stream onto unembedding at each layer to visualize where the correct verb prediction forms.
+![Activation Patching — Russian](results/figures/fig_patching_ru.png)
 
-12. **Circuit knockout validation**: Ablate the identified circuit to test necessity (does SVA break?) and ablate everything except the circuit to test sufficiency (is SVA preserved?).
+### Turkish
 
-### Multi-Token Approach
+![Activation Patching — Turkish](results/figures/fig_patching_tr.png)
 
-For languages with agglutinative morphology (Turkish, Swahili, Quechua), plural forms tokenize into multiple subwords. We adapted the pipeline to use **first-subword token matching**: comparing the first subword token of singular vs plural verb forms, which differ due to prefix changes (Swahili a-/wa-) or stem differences. This extends the methodology beyond the single-token constraint of the original paper.
+### Swahili
+
+![Activation Patching — Swahili](results/figures/fig_patching_sw.png)
+
+### Quechua
+
+![Activation Patching — Quechua](results/figures/fig_patching_qu.png)
+
+Across all 7 languages, the patching maps share a common structure: Layer 13 consistently contains the highest-importance heads. The non-Indo-European languages (Turkish, Swahili, Quechua) show more distributed patterns with lower peak values, suggesting the model has weaker but still detectable SVA circuits for these low-resource languages.
 
 ---
 
-## Key Findings
+## 2. Direct Logit Attribution — Directional Contributions
 
-### 1. Universal SVA Circuit Structure
+**What this experiment does**: The model's final prediction is a sum of contributions from every component (each attention head and each MLP layer). Direct Logit Attribution (DLA) mathematically decomposes this sum to show exactly how much each component pushes the prediction toward the correct verb vs the incorrect verb.
 
-**MLP17 is the dominant component in ALL 7 languages.** Edge Attribution Patching consistently ranks MLP17, MLP16, and MLP13 as the top 3 components. The SVA circuit is language-independent at the component level.
+Think of it like this: if the model outputs "is" with confidence 5.0 and "are" with confidence 2.0, the difference is 3.0. DLA breaks that 3.0 into individual contributions: head A contributed +2.1, head B contributed +1.5, head C contributed -0.6, etc. Components with large positive values are helping the model get the right answer; components with negative values are working against it.
 
-### 2. Cross-Layer Wiring Divergence
+The bar charts below show the top 15 heads by absolute contribution for each language. Blue bars push toward the correct verb, red bars push away from it.
 
-The cross-layer connection map revealed a striking pattern:
-- **English**: L13H3→L17H4 (strength 0.41), L13H7→L17H4 (0.37) — routes through **Layer 13→Layer 17**
-- **All other languages** (ES, FR, RU, TR, SW, QU): L14H0→L16H1 and L14H3→L16H0 dominate — routes through **Layer 14→Layer 16**
+### English and Spanish
 
-English is the outlier. Possible explanations: (a) English dominates training data, developing a specialized circuit; (b) English has simpler agreement morphology (no overt marking in many contexts), requiring different processing.
+![DLA — English](results/figures/fig_dla_en.png)
+![DLA — Spanish](results/figures/fig_dla_es.png)
 
-### 3. Cross-Lingual Steering Transfers
+In both languages, L13H7 and L17H4 have the largest positive DLA (pushing toward the correct verb). Some heads show negative DLA — they actually push toward the *wrong* verb, acting as opposing forces in the circuit.
 
-The English-derived PC1 direction from L13H7 causally affects verb predictions in all 6 target languages:
+### Additional Languages
 
-| Target | Flip rate (α=50, +dir) | Flip rate (α=50, -dir) |
-|--------|----------------------|----------------------|
-| Spanish | 20.4% | 36.5% |
-| French | 20.2% | 25.1% |
-| Russian | 27.3% | 29.6% |
-| Turkish | — | — |
-| Swahili | — | — |
-| Quechua | — | — |
+![DLA — French](results/figures/fig_dla_fr.png)
+![DLA — Russian](results/figures/fig_dla_ru.png)
+![DLA — Turkish](results/figures/fig_dla_tr.png)
+![DLA — Swahili](results/figures/fig_dla_sw.png)
+![DLA — Quechua](results/figures/fig_dla_qu.png)
 
-Russian shows the strongest steering effect despite being Slavic with Cyrillic script.
+---
 
-### 4. Representational Convergence at Layer 13
+## 3. Weight Importance Maps — Which Weights Are Wired for SVA?
 
-CKA analysis across layers shows cross-lingual similarity peaks at **Layer 13** (mean CKA = 0.140), the layer containing the key SVA head. Representations converge at the critical layer then diverge again.
+**What this experiment does**: The previous experiments (patching, DLA) look at what happens during inference — they require running data through the model. This experiment is fundamentally different: it analyzes the model's **weight matrices directly**, without running any data.
 
-Pair-wise CKA at final layer: EN-ES (0.132) > ES-RU (0.101) ≈ EN-FR (0.101) > ES-FR (0.099) > EN-RU (0.088).
+Each attention head has two key weight matrices: W_V (what information to read from the input) and W_O (what to write to the output). Together, the OV circuit (W_V × W_O) defines what the head does. We decompose this matrix and ask: "how aligned is this head's OV circuit with the verb-number direction?" — i.e., the direction in the model's internal space that separates "is" from "are" in the output vocabulary.
 
-### 5. Attention Patterns: L1H7 is the Universal Subject Reader
+The result is a per-head importance score that reflects the model's **structural wiring** for the SVA task. A high score means the head's weights are physically oriented to process number agreement, regardless of whether it's actually activated during inference. This is the basis for our per-weight importance maps (150M individually-scored weights per language).
 
-**L13H7** attends to the subject in English (#1 with 0.465 attention score), but **L1H7** is the most consistent subject-reading head across languages:
-- #1 in ES (0.542), TR (0.451), SW (0.189), QU (0.408)
-- Top-5 in FR and RU
+The heatmaps below show this weight-level importance across all layers and heads.
 
-This suggests a two-stage circuit: L1H7 reads the subject early, L13H7 processes the number signal at the critical layer.
+### English
 
-### 6. Logit Lens: Late Prediction Formation
+![Weight Importance — English](results/figures/fig_weight_importance_en.png)
 
-The correct verb prediction forms very late in the network. At Layer 17, the logit difference is large but the correct verb is still ranked ~1000th out of 256K tokens. Only after the final LayerNorm does it become a top prediction (rank 12 for EN, rank 117 for SW). LayerNorm performs critical rescaling.
+The English weight map shows L0H5 (importance 5.77) and L0H3 (3.31) as the most weight-aligned heads, followed by L17H4 (1.47), L15H1 (1.43), and L13H7 (1.02). The Layer 0 dominance is notable — these embedding-layer heads have weights that are structurally oriented toward the verb-number direction, even though their causal importance (from patching) is lower.
 
-### 7. Circuit Knockout Results
+### Spanish
 
-| Language | Circuit Size | Necessity Drop | Sufficiency |
-|----------|-------------|----------------|-------------|
-| English | 2 heads | 4.7% | WEAK |
-| Spanish | 2 heads | 16.4% | WEAK |
-| French | 11 heads | 5.5% | PASS |
-| Russian | 3 heads | 5.5% | PASS |
-| **Turkish** | **28 heads** | **27.8%** | **PASS** |
-| Swahili | 5 heads | 7.8% | WEAK |
-| Quechua | 3 heads | 10.0% | PASS |
+![Weight Importance — Spanish](results/figures/fig_weight_importance_es.png)
 
-Turkish achieves the cleanest circuit validation — ablating the 28-head circuit drops accuracy by 27.8%, and keeping only those heads preserves 83.3% accuracy.
+Spanish shows the same L0H5/L0H3 dominance but with much higher values (19.15 and 15.96). The scale difference from English suggests the unembedding direction for Spanish verb pairs is more aligned with these early-layer weight matrices.
 
-### 8. Per-Weight Importance Maps
+### All 7 Languages Compared
 
-For each language, we mapped all 150,994,944 attention weights individually:
-- **~10% of weights are critical** (above the 90th percentile of importance)
-- **~90% of weights are candidates** for aggressive quantization/pruning
-- Per-weight maps saved as `weight_map_{lang}.npz`
+![Weight Importance — French](results/figures/fig_weight_importance_fr.png)
+![Weight Importance — Russian](results/figures/fig_weight_importance_ru.png)
+![Weight Importance — Turkish](results/figures/fig_weight_importance_tr.png)
+![Weight Importance — Swahili](results/figures/fig_weight_importance_sw.png)
+![Weight Importance — Quechua](results/figures/fig_weight_importance_qu.png)
 
-### 9. Circuit Map vs Wanda: 68% Disagreement
+**Key finding**: L0H5 and L0H3 are the top 2 heads in every single language. The weight importance maps are more uniform across languages than the patching maps — the model's weight structure contains a universal SVA-aligned subspace that all languages share, even though the activation-level circuits vary.
 
-The most significant finding for model compression:
+---
+
+## 4. SVD Spectra — Functional Rank of Each Head
+
+**What this experiment does**: Each attention head's OV matrix can be decomposed into independent "channels" using Singular Value Decomposition (SVD). Think of SVD as breaking the head's computation into ranked components: the first singular value captures the most important direction, the second captures the next most important orthogonal direction, and so on.
+
+If a head has one very large singular value and the rest are tiny, it's essentially doing one thing — a simple, clean computation (like "check if the subject is singular or plural"). If the singular values are all similar, the head is doing many things simultaneously, making it harder to interpret and harder to compress.
+
+For model compression, heads with peaked spectra (one dominant direction) are easier to approximate with low-rank matrices. Heads with flat spectra need to keep more of their weight matrix intact.
+
+![SVD Spectrum — English](results/figures/fig_svd_spectrum_en.png)
+
+L13H7's spectrum is relatively flat — the top singular value explains only 11.6% of the total. This means L13H7 is doing more than just a simple number-direction projection; it's implementing a multi-dimensional computation. This complicates the "one direction per head" narrative from the original paper.
+
+---
+
+## 5. Edge Attribution Patching — Fast Circuit Discovery
+
+**What this experiment does**: Activation patching (Section 1) is thorough but slow — it requires a separate forward pass for every head we want to test (144 heads × number of examples). Edge Attribution Patching (EAP) achieves nearly the same result using calculus: instead of physically swapping activations, it computes the gradient of the model's output with respect to each component's activation. This tells us, mathematically, how sensitive the output is to changes in each component.
+
+The key advantage: EAP needs only 2 forward passes + 1 backward pass per example (compared to 144+ forward passes for full patching). This makes it 10-100x faster and lets us include MLP layers in the analysis, not just attention heads.
+
+The comparison below shows EAP scores for all components (both attention heads and MLPs) side by side across all 7 languages.
+
+![EAP Comparison](results/figures/fig_eap_comparison.png)
+
+The EAP comparison across all 7 languages reveals that **MLP layers dominate**: MLP17 is the #1 component in every language, followed by MLP16 and MLP13. This is invisible in the patching analysis (which only patches attention heads) and highlights that the MLP layers are doing critical work for SVA.
+
+---
+
+## 6. Attention Patterns — What Does Each Head Attend To?
+
+**What this experiment does**: Attention heads work by "looking at" certain positions in the input and combining information from them. For SVA, the key question is: when the model is about to predict the verb at the end of the sentence, which heads look back at the subject noun?
+
+We extract the attention weights from the final position (where the verb is predicted) for every head, then measure how much attention falls on the subject noun positions (positions 1-3 in the sentence). A head that puts most of its attention on the subject is likely reading the number signal (singular vs plural).
+
+The heatmaps below show "subject attention score" for each head — darker cells mean the head attends more to the subject.
+
+![Subject Attention — English](results/figures/fig_attention_en.png)
+![Subject Attention — Spanish](results/figures/fig_attention_es.png)
+![Subject Attention — French](results/figures/fig_attention_fr.png)
+![Subject Attention — Russian](results/figures/fig_attention_ru.png)
+![Subject Attention — Turkish](results/figures/fig_attention_tr.png)
+![Subject Attention — Swahili](results/figures/fig_attention_sw.png)
+![Subject Attention — Quechua](results/figures/fig_attention_qu.png)
+
+**Key finding**: **L13H7** is the #1 subject-attending head in English (0.465 attention to subject positions), confirming it reads the subject number signal. But **L1H7** is the most consistent subject-reader across languages — it's #1 in ES, TR, SW, and QU. This suggests a two-stage circuit: L1H7 reads the subject early, L13H7 processes the number signal at the critical layer.
+
+---
+
+## 7. Logit Lens — Where Does the Prediction Form?
+
+**What this experiment does**: A transformer processes information layer by layer, building up an internal representation (called the "residual stream"). At the very end, this representation is converted into word probabilities by the unembedding matrix. The logit lens applies this conversion at every intermediate layer — like taking snapshots of what the model "thinks" the next word is at each step of processing.
+
+This reveals where the correct verb prediction forms. If the correct verb appears at Layer 5, the earlier layers have already solved the problem. If it only appears at Layer 17, the model needs nearly all its layers. For model compression, layers where the prediction hasn't changed are candidates for removal.
+
+The plots below show two metrics at each layer:
+- **Blue line (logit diff)**: How much the model's internal state favors the correct verb over the incorrect one. Higher = more confident.
+- **Red line (P(correct))**: The actual probability of the correct verb if we decoded at that layer. This stays near zero until the very end because the model's vocabulary is 256K tokens — even a large logit diff translates to a tiny probability until the final LayerNorm concentrates it.
+
+![Logit Lens — English](results/figures/fig_logit_lens_en.png)
+![Logit Lens — Spanish](results/figures/fig_logit_lens_es.png)
+![Logit Lens — French](results/figures/fig_logit_lens_fr.png)
+![Logit Lens — Russian](results/figures/fig_logit_lens_ru.png)
+![Logit Lens — Turkish](results/figures/fig_logit_lens_tr.png)
+![Logit Lens — Swahili](results/figures/fig_logit_lens_sw.png)
+![Logit Lens — Quechua](results/figures/fig_logit_lens_qu.png)
+
+The blue line (logit diff) shows the model's internal confidence in the correct verb grows through the layers, with a large jump at Layer 13-14 and peaking at Layer 17. But the red line (P(correct)) stays near zero until the very last layer — the model's logit diff is large but spread across a huge vocabulary. **LayerNorm at the output performs critical rescaling** that converts a broad signal into an actual peaked prediction.
+
+---
+
+## 8. Cross-Lingual Steering — Does the English Direction Transfer?
+
+**What this experiment does**: The PCA analysis (from the original paper) found that attention head L13H7 encodes subject number as a single direction in its output space — one end means "singular", the other means "plural". We extract this direction from English data only (the PC1 vector).
+
+The steering experiment then asks: if we take this English-derived "number direction" and inject it into the model while it processes a Spanish/French/Russian/etc. sentence, does it flip the verb prediction? If yes, the model uses the same internal representation for number across languages.
+
+We vary the steering magnitude α from 0 (no intervention) to 50 (strong intervention). The flip rate measures what fraction of sentences change their verb prediction. A flip rate increasing with α is evidence of causal cross-lingual transfer.
+
+![Steering — Spanish](results/figures/fig_steering_es.png)
+![Steering — French](results/figures/fig_steering_fr.png)
+![Steering — Russian](results/figures/fig_steering_ru.png)
+![Steering — Turkish](results/figures/fig_steering_tr.png)
+![Steering — Swahili](results/figures/fig_steering_sw.png)
+![Steering — Quechua](results/figures/fig_steering_qu.png)
+
+The flip rate increases with steering magnitude α in all languages, confirming cross-lingual causal transfer. Russian shows the strongest effect (27-30% flip rate at α=50) despite using Cyrillic script and being from a different language family.
+
+---
+
+## 9. Circuit Knockout — Is the Circuit Necessary and Sufficient?
+
+**What this experiment does**: The previous experiments identified a set of "important" heads. But are they actually the complete circuit? Two tests:
+
+1. **Necessity test**: Zero out all the identified circuit heads simultaneously. If the model can no longer do SVA, the circuit was necessary — you can't remove it without breaking the task.
+
+2. **Sufficiency test**: Zero out every head *except* the identified circuit. If the model can still do SVA, the circuit is sufficient — it contains everything needed, and everything else is irrelevant for this task.
+
+A circuit that passes both tests is validated as a complete, minimal description of how the model solves SVA. This is important for compression: if the circuit passes sufficiency, you know exactly which heads to keep and which to prune.
+
+![Circuit Knockout Summary](results/figures/fig_knockout_summary.png)
+
+- **Blue bars**: Baseline accuracy (no ablation)
+- **Red bars**: Accuracy after ablating the circuit (testing necessity — lower is better, means the circuit was needed)
+- **Green bars**: Accuracy after ablating everything except the circuit (testing sufficiency — higher is better, means the circuit alone is enough)
+
+**Turkish** achieves the cleanest validation: ablating the 28-head circuit drops accuracy from 72% to 44% (necessity PASS), and keeping only those heads preserves 83% accuracy (sufficiency PASS). English and Spanish show WEAK results because the patching threshold (0.1) identified only 2 heads — the real circuit is larger.
+
+---
+
+## 10. CKA Convergence — Where Do Languages Converge?
+
+**What this experiment does**: When the model processes "The doctor is" (English) and "El doctor es" (Spanish), the internal representations at each layer are different — they start from different tokens. But at some point, the model must converge to a shared representation of "singular subject, needs singular verb". CKA (Centered Kernel Alignment) measures how similar the representations are between language pairs at each layer.
+
+CKA is invariant to rotation and scaling — it measures whether the *geometry* of the representations (the relative distances between examples) is similar, not whether the raw vectors are identical. A CKA of 1.0 means the representations have the same structure; 0 means no structural similarity.
+
+![CKA Convergence](results/figures/fig_convergence.png)
+
+Cross-lingual similarity peaks at **Layer 13** (mean CKA = 0.26), the exact layer containing the key SVA head. Representations converge at the critical layer then diverge again. This is evidence that the model develops a shared, language-independent representation for grammatical number at the layer where it needs it.
+
+---
+
+## 11. Cross-Layer Connection Map
+
+**What this experiment does**: In a transformer, heads don't communicate directly — they read from and write to a shared "residual stream". Head A in Layer 5 writes something to the residual stream, and Head B in Layer 13 reads from it. The connection strength between A and B depends on how much A's output overlaps with what B reads.
+
+We compute this for every pair of heads: "if Head A writes its task-relevant output to the residual stream, how much does Head B pick up from that to produce its own task-relevant output?" This gives us a wiring diagram of the circuit — not based on activations, but on the actual weight matrices.
+
+The result is a connection matrix showing which heads feed information to which other heads for the SVA task.
+
+**English** routes through **L13→L17**: L13H3→L17H4 (0.41), L13H7→L17H4 (0.37)
+
+**All other languages** route through **L14→L16**: L14H0→L16H1 and L14H3→L16H0 dominate
+
+English is the outlier in circuit wiring — the same task, the same model, but different information routing. This may be because English dominates the training data, leading the model to develop a specialized processing path, while all other languages share a common default route.
+
+---
+
+## 12. Circuit Map vs Wanda — Do Different Methods Agree?
+
+**What this experiment does**: There are two philosophies for deciding which weights matter in a neural network:
+
+1. **Our approach (circuit map)**: Analyze the weight matrices mathematically and ask "which weights are structurally wired to contribute to this specific task?" This uses the OV decomposition and task projection from Section 3.
+
+2. **Wanda (standard baseline)**: Run data through the model and observe which weights get activated with large values. Importance = |weight| × ||activation||. This is the standard approach used in model pruning.
+
+If both methods agree on which weights are important, then our expensive circuit analysis doesn't add much over the simpler Wanda baseline. If they disagree, our method captures something Wanda misses — structural task relevance that isn't visible from activations alone.
+
+We compared the two at multiple thresholds across all 7 languages.
 
 | Metric | Value |
 |--------|-------|
-| Spearman rank correlation | ρ = 0.74 (moderate agreement) |
-| Top 10% Jaccard overlap | 0.30-0.35 (low overlap) |
-| **Disagreement rate** | **68.1%** |
+| Spearman rank correlation | ρ = 0.74 (moderate) |
+| Top 10% Jaccard overlap | 0.30-0.35 |
+| **Disagreement rate at top 10%** | **68.1%** |
 | Circuit-only critical weights | 27.3M |
 | Wanda-only critical weights | 27.3M |
 | Both agree critical | 25.5M |
 
-**The two methods identify substantially different sets of critical weights.** Our circuit-derived importance (based on weight structure relative to the task direction) captures weights that Wanda (based on activation magnitudes) misses, and vice versa. This suggests that combining both signals could produce better compression decisions than either alone.
+**The two methods identify substantially different sets of critical weights.** At the top 1% (most critical), overlap drops to just 19-35%. Our circuit-derived importance captures task-relevant weight structure that activation-based methods miss, and vice versa. This suggests that combining both signals could produce better compression decisions than either alone.
 
-At the most selective level (top 1%), overlap drops to just 19-35% (Jaccard 0.10-0.22). The methods are most divergent on the weights they consider most critical.
-
----
-
-## File Inventory
-
-### Result Files (`results/`)
-
-| File Pattern | Content | Shape |
-|-------------|---------|-------|
-| `patching_{lang}.npz` | Activation patching per head | (18, 8) |
-| `dla_{lang}.npz` | Direct logit attribution per head | (18, 8) |
-| `neurons_{lang}.npz` | Per-neuron MLP DLA, layers 13 & 17 | (16384,) per layer |
-| `edge_patching_{lang}.npz` | EAP node scores | (162,) |
-| `circuit_map_{lang}.npz` | Head importance, SVD spectra, connections | (18, 8) + (144, 144) |
-| `weight_map_{lang}.npz` | Per-weight W_V and W_O importance | (18, 8, 2048, 256) |
-| `wanda_{lang}.npz` | Wanda activation × weight importance | (18, 8, 2048, 256) |
-| `attention_{lang}.npz` | Attention patterns from last position | (18, 8, max_seq) |
-| `logit_lens_{lang}.npz` | Per-layer logit diff, rank, probability | (19, n_examples) |
-| `knockout_{lang}.npz` | Circuit necessity/sufficiency scores | scalars |
-| `pca_L13H7.npz` | PC1 direction, projections, labels | (256,) |
-| `steering_{lang}.npz` | Flip rates across alpha values | (6,) |
-| `activations_{lang}.npz` | Per-layer residual stream activations | (18, 128, 2048) |
-| `geometry.npz` | CKA, SVCCA, RSA, Procrustes per layer | (18, 21) |
-
-### Visualization Files (`results/figures/`)
-
-**2D Plots (PNG)**:
-- `fig1_patching_en.png` through `fig_patching_{lang}.png` — activation patching heatmaps
-- `fig_dla_{lang}.png` — DLA bar charts
-- `fig5_pca_scatter.png` — PC1 projections colored by number/language
-- `fig6_steering.png` — steering flip rate curves
-- `fig_weight_importance_{lang}.png` — per-head weight importance heatmaps
-- `fig_svd_spectrum_{lang}.png` — OV matrix SVD spectra
-- `fig_eap_comparison.png` — side-by-side EAP scores
-- `fig_convergence.png` — CKA convergence across layers
-
-**3D Interactive (HTML)**:
-- `viz_importance_3d.html` — overlaid weight importance surfaces per language
-- `viz_circuit_graph_3d.html` — 3D scatter of component importance
-- `viz_cka_animated.html` — animated CKA heatmap with layer slider
-- `viz_convergence_3d.html` — multi-metric convergence in 3D
-- `viz_task_cosine.html` — per-head task projection cosine similarity
-- `viz_svd_spectrum.html` — SVD spectra visualization
-
-### Figure Descriptions
-
-**Activation patching heatmaps** (`fig_patching_{lang}.png`): Each cell (layer, head) shows normalized patch effect ∈ [0,1]. Value of 1 means that head fully restores correct verb prediction when patched from clean to corrupted run. L13H7 shows high values across languages.
-
-**DLA bar charts** (`fig_dla_{lang}.png`): Top-15 heads by absolute direct logit attribution. Blue bars = positive (pushes toward correct verb), red = negative. Based on exact decomposition of logit difference into per-component contributions.
-
-**PCA scatter** (`fig5_pca_scatter.png`): PC1 projections of L13H7 head outputs. Blue = singular, red = plural. Circles = EN, triangles = ES. Clean separation confirms L13H7 encodes a language-independent subject-number direction.
-
-**Steering curves** (`fig6_steering.png`): Flip rate (fraction of predictions that change) as a function of steering magnitude α. Increasing α along the PC1 direction progressively flips more verb predictions, demonstrating causal transfer.
-
-**Weight importance heatmaps** (`fig_weight_importance_{lang}.png`): Per-head weight importance = ||OV @ unembed_dir||. Shows which heads' weight matrices are structurally aligned with the SVA task direction. Derived from static weights, not activations.
-
-**SVD spectra** (`fig_svd_spectrum_{lang}.png`): Top-10 singular values of each head's OV matrix at Layer 13. Flat spectra = distributed computation across many directions. Peaked spectra = clean rank-1 computation.
-
-**EAP comparison** (`fig_eap_comparison.png`): Side-by-side bar charts of Edge Attribution Patching node scores across languages. Shows gradient-based importance of each head and MLP.
-
-**CKA convergence** (`fig_convergence.png`): Mean CKA across all language pairs at each layer. Peak at Layer 13 shows representations are most similar across languages at the critical SVA layer.
-
-**3D importance surface** (`viz_importance_3d.html`): Interactive 3D plot with X=layer, Y=head, Z=weight importance. One semi-transparent surface per language, overlaid for comparison. Rotate and hover to explore.
-
-**Animated CKA** (`viz_cka_animated.html`): 7×7 language pair similarity matrix with a slider to step through layers 0-17. Shows how cross-lingual similarity evolves through the network.
+Per-weight maps are available for all 7 languages, covering 150,994,944 attention weights each.
 
 ---
 
