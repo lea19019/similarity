@@ -35,7 +35,7 @@ class TestPathConstants:
 
 
 class TestModelConfigs:
-    EXPECTED_KEYS = {"gemma-2b", "gemma-7b", "gemma-2-2b"}
+    EXPECTED_KEYS = {"gemma-2b", "gemma-7b", "gemma-2-2b", "bloom-3b"}
     REQUIRED_FIELDS = {
         "hf_name", "tl_name", "n_layers", "n_heads", "d_model",
         "key_head", "key_neurons",

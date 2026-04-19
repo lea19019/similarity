@@ -1,0 +1,396 @@
+══════════════════════════════════════════════════════════════════════════════
+ 1. ACTIVATION PATCHING — top-5 heads per language
+══════════════════════════════════════════════════════════════════════════════
+Lang   Top-5 heads (layer, head, patch_effect)
+en     L13H7=0.371  L17H4=0.240  L13H0=0.077  L11H7=0.044  L13H5=0.039
+es     L13H7=0.602  L17H4=0.136  L13H0=0.074  L13H5=0.042  L14H7=0.041
+fr     L13H3=0.606  L5H3=0.504  L0H5=0.466  L17H7=0.449  L5H7=0.312
+ru     L13H7=0.157  L13H0=0.149  L17H4=0.102  L14H0=0.098  L6H3=0.090
+sw     L13H7=0.285  L14H5=0.242  L13H0=0.163  L1H6=0.124  L5H3=0.122
+tr     L2H1=0.521  L14H4=0.512  L14H0=0.507  L14H1=0.482  L1H2=0.469
+qu     L14H0=0.216  L14H1=0.134  L15H5=0.128  L14H5=0.097  L14H4=0.085
+
+BLOOM patching:
+en     L23H15=0.101  L24H10=0.084  L26H12=0.060  L22H8=0.045  L29H12=0.043
+es     L23H15=0.133  L22H8=0.100  L24H10=0.097  L24H3=0.062  L29H12=0.062
+fr     L29H12=0.058  L25H13=0.047  L22H8=0.045  L24H10=0.041  L28H15=0.040
+sw     L20H30=0.073  L28H21=0.067  L24H30=0.060  L29H19=0.047  L24H14=0.047
+
+Max patching effect per language (signal strength):
+Lang    Gemma_max  Gemma_top_head  BLOOM_max  BLOOM_top_head
+en          0.371           L13H7      0.101          L23H15
+es          0.602           L13H7      0.133          L23H15
+fr          0.606           L13H3      0.058          L29H12
+ru          0.157           L13H7        nan              --
+sw          0.285           L13H7      0.073          L20H30
+tr          0.521            L2H1        nan              --
+qu          0.216           L14H0        nan              --
+
+Layer concentration (top-1 patching cell location):
+  en: best layer = L13  (max=0.371); Gemma has 18 layers so L13 = 76% depth
+  es: best layer = L13  (max=0.602); Gemma has 18 layers so L13 = 76% depth
+  fr: best layer = L13  (max=0.606); Gemma has 18 layers so L13 = 76% depth
+  ru: best layer = L13  (max=0.157); Gemma has 18 layers so L13 = 76% depth
+  sw: best layer = L13  (max=0.285); Gemma has 18 layers so L13 = 76% depth
+  tr: best layer = L2  (max=0.521); Gemma has 18 layers so L2 = 12% depth
+  qu: best layer = L14  (max=0.216); Gemma has 18 layers so L14 = 82% depth
+
+══════════════════════════════════════════════════════════════════════════════
+ 2. DIRECT LOGIT ATTRIBUTION (correlational)
+══════════════════════════════════════════════════════════════════════════════
+Lang   Top-3 heads by DLA  |  Bottom-3 (most negative)
+en     L0H5=+11.01  L17H4=+2.26  L14H2=+1.79  |  L17H7=-5.48  L16H5=-2.07  L16H3=-2.04
+es     L17H4=+1.70  L13H7=+0.39  L17H0=+0.36  |  L0H5=-4.94  L0H3=-0.78  L0H2=-0.59
+fr     L0H6=+0.67  L13H0=+0.56  L16H1=+0.53  |  L0H5=-64.81  L14H2=-11.28  L1H2=-9.07
+ru     L17H4=+0.73  L13H0=+0.34  L15H7=+0.27  |  L0H5=-6.77  L14H2=-4.43  L1H2=-2.97
+sw     L0H5=+24.57  L0H7=+9.38  L0H6=+4.99  |  L0H3=-5.71  L17H7=-3.26  L14H2=-2.57
+tr     L14H1=+2.34  L14H0=+2.34  L2H1=+2.33  |  L0H5=-59.12  L0H3=-53.26  L2H2=-5.34
+qu     L0H7=+12.66  L0H0=+8.72  L0H4=+8.19  |  L0H3=-43.88  L14H2=-10.19  L14H3=-9.08
+
+══════════════════════════════════════════════════════════════════════════════
+ 3. EDGE ATTRIBUTION PATCHING (attention + MLP together)
+══════════════════════════════════════════════════════════════════════════════
+Lang   Top-5 components (all types)
+en     MLP17=13.434  MLP16=8.787  MLP13=7.678  MLP15=7.501  MLP14=7.014
+es     MLP17=22.622  MLP16=13.567  MLP15=8.936  MLP13=8.593  MLP14=7.947
+fr     MLP17=41.134  MLP16=27.318  MLP0=24.209  MLP15=20.293  MLP1=18.856
+ru     MLP17=15.674  MLP16=11.133  MLP0=10.390  MLP15=8.469  MLP1=8.445
+sw     MLP17=34.510  MLP16=23.468  MLP15=17.073  MLP1=15.825  MLP0=15.133
+tr     MLP17=73.071  MLP0=47.995  MLP1=35.662  MLP16=32.848  MLP2=28.044
+qu     MLP17=106.788  MLP0=46.753  MLP16=29.293  MLP1=25.357  MLP15=23.021
+
+BLOOM EAP:
+en     MLP28=4.103  MLP26=4.074  MLP27=3.857  MLP29=3.747  MLP24=3.744
+es     MLP28=3.602  MLP27=3.526  MLP29=3.380  MLP26=3.378  MLP25=3.212
+fr     MLP28=3.905  MLP27=3.794  MLP26=3.677  MLP25=3.618  MLP29=3.527
+sw     MLP28=17.350  MLP29=17.327  MLP27=14.069  MLP26=12.626  MLP25=11.757
+
+══════════════════════════════════════════════════════════════════════════════
+ 4. CROSS-LINGUAL STEERING (EN direction → target lang)
+══════════════════════════════════════════════════════════════════════════════
+Target   alphas     flip_rate_pos         flip_rate_neg            peak_pos   peak_neg
+es       [np.int64(0), np.int64(5), np.int64(10), np.int64(20), np.int64(30), np.int64(50)]  pos=[np.float64(0.0), np.float64(0.41), np.float64(0.47), np.float64(0.35), np.float64(0.51), np.float64(0.38)]  neg=[np.float64(0.0), np.float64(0.34), np.float64(0.66), np.float64(0.4), np.float64(0.34), np.float64(0.38)]  pk_pos=0.51@α=30  pk_neg=0.66@α=10
+fr       [np.int64(0), np.int64(5), np.int64(10), np.int64(20), np.int64(30), np.int64(50)]  pos=[np.float64(0.0), np.float64(0.02), np.float64(0.04), np.float64(0.09), np.float64(0.34), np.float64(0.45)]  neg=[np.float64(0.0), np.float64(0.02), np.float64(0.03), np.float64(0.07), np.float64(0.17), np.float64(0.28)]  pk_pos=0.45@α=50  pk_neg=0.28@α=50
+ru       [np.int64(0), np.int64(5), np.int64(10), np.int64(20), np.int64(30), np.int64(50)]  pos=[np.float64(0.0), np.float64(0.03), np.float64(0.07), np.float64(0.28), np.float64(0.3), np.float64(0.4)]  neg=[np.float64(0.0), np.float64(0.08), np.float64(0.14), np.float64(0.23), np.float64(0.27), np.float64(0.29)]  pk_pos=0.40@α=50  pk_neg=0.29@α=50
+sw       [np.int64(0), np.int64(5), np.int64(10), np.int64(20), np.int64(30), np.int64(50)]  pos=[np.float64(0.0), np.float64(0.06), np.float64(0.16), np.float64(0.25), np.float64(0.2), np.float64(0.64)]  neg=[np.float64(0.0), np.float64(0.07), np.float64(0.16), np.float64(0.23), np.float64(0.33), np.float64(0.4)]  pk_pos=0.64@α=50  pk_neg=0.40@α=50
+tr       [np.int64(0), np.int64(5), np.int64(10), np.int64(20), np.int64(30), np.int64(50)]  pos=[np.float64(0.0), np.float64(0.0), np.float64(0.0), np.float64(0.06), np.float64(0.11), np.float64(0.33)]  neg=[np.float64(0.0), np.float64(0.0), np.float64(0.0), np.float64(0.11), np.float64(0.11), np.float64(0.06)]  pk_pos=0.33@α=50  pk_neg=0.11@α=20
+qu       [np.int64(0), np.int64(5), np.int64(10), np.int64(20), np.int64(30), np.int64(50)]  pos=[np.float64(0.0), np.float64(0.02), np.float64(0.02), np.float64(0.05), np.float64(0.13), np.float64(0.2)]  neg=[np.float64(0.0), np.float64(0.03), np.float64(0.05), np.float64(0.1), np.float64(0.15), np.float64(0.18)]  pk_pos=0.20@α=50  pk_neg=0.18@α=50
+
+BLOOM steering:
+es       pos=[np.float64(0.0), np.float64(0.1), np.float64(0.24), np.float64(0.4), np.float64(0.4), np.float64(0.4)]  neg=[np.float64(0.0), np.float64(0.11), np.float64(0.47), np.float64(0.6), np.float64(0.6), np.float64(0.6)]  pk_pos=0.40@α=50  pk_neg=0.60@α=50
+fr       pos=[np.float64(0.0), np.float64(0.02), np.float64(0.06), np.float64(0.1), np.float64(0.15), np.float64(0.18)]  neg=[np.float64(0.0), np.float64(0.02), np.float64(0.11), np.float64(0.35), np.float64(0.64), np.float64(0.82)]  pk_pos=0.18@α=50  pk_neg=0.82@α=50
+sw       pos=[np.float64(0.0), np.float64(0.01), np.float64(0.02), np.float64(0.03), np.float64(0.04), np.float64(0.05)]  neg=[np.float64(0.0), np.float64(0.01), np.float64(0.02), np.float64(0.04), np.float64(0.05), np.float64(0.08)]  pk_pos=0.05@α=50  pk_neg=0.08@α=50
+
+══════════════════════════════════════════════════════════════════════════════
+ 5. CIRCUIT KNOCKOUT
+══════════════════════════════════════════════════════════════════════════════
+Lang   n_heads  baseline  necessity  sufficiency  interpretation
+en           2      1.00       0.95         0.65  drop=+0.05, keep=65%
+es           2      0.89       0.73         0.52  drop=+0.16, keep=58%
+fr          11      0.63       0.58         0.86  drop=+0.05, keep=136%
+ru           3      0.85       0.80         0.91  drop=+0.05, keep=107%
+sw           5      0.87       0.79         0.48  drop=+0.08, keep=56%
+tr          28      0.72       0.44         0.83  drop=+0.28, keep=115%
+qu           3      0.77       0.67         0.82  drop=+0.10, keep=107%
+
+══════════════════════════════════════════════════════════════════════════════
+ 6. LOGIT LENS — layer at which logit_diff first crosses 50% of max
+══════════════════════════════════════════════════════════════════════════════
+en     ld_peak=29.90 @L17 (94%)  reaches 50% @L13 (72%)  per-layer: [np.float64(9.3), np.float64(9.7), np.float64(9.9), np.float64(10.0), np.float64(9.3), np.float64(9.6), np.float64(9.5), np.float64(10.2), np.float64(9.7), np.float64(10.2), np.float64(9.5), np.float64(11.6), np.float64(13.2), np.float64(19.8), np.float64(26.7), np.float64(26.8), np.float64(18.6), np.float64(29.9), np.float64(3.8)]
+es     ld_peak=16.81 @L17 (94%)  reaches 50% @L16 (89%)  per-layer: [np.float64(-5.4), np.float64(-5.2), np.float64(-4.7), np.float64(-4.5), np.float64(-4.3), np.float64(-4.4), np.float64(-4.2), np.float64(-4.3), np.float64(-4.4), np.float64(-4.6), np.float64(-4.1), np.float64(-5.3), np.float64(-5.5), np.float64(-3.0), np.float64(-2.5), np.float64(0.7), np.float64(9.6), np.float64(16.8), np.float64(2.3)]
+fr     ld_peak=103.94 @L0 (0%)  reaches 50% @L0 (0%)  per-layer: [np.float64(103.9), np.float64(49.0), np.float64(30.4), np.float64(21.1), np.float64(16.9), np.float64(13.9), np.float64(13.4), np.float64(11.9), np.float64(11.8), np.float64(11.9), np.float64(11.6), np.float64(11.8), np.float64(11.4), np.float64(10.8), np.float64(-5.5), np.float64(-9.9), np.float64(-5.0), np.float64(2.1), np.float64(0.7)]
+ru     ld_peak=42.71 @L0 (0%)  reaches 50% @L0 (0%)  per-layer: [np.float64(42.7), np.float64(24.7), np.float64(17.3), np.float64(12.3), np.float64(10.3), np.float64(9.4), np.float64(9.2), np.float64(9.0), np.float64(9.2), np.float64(9.1), np.float64(9.1), np.float64(8.9), np.float64(9.4), np.float64(10.3), np.float64(6.2), np.float64(6.5), np.float64(10.6), np.float64(13.5), np.float64(1.7)]
+sw     ld_peak=21.71 @L17 (94%)  reaches 50% @L17 (94%)  per-layer: [np.float64(-15.4), np.float64(-11.4), np.float64(-9.6), np.float64(-4.8), np.float64(-7.0), np.float64(-6.2), np.float64(-4.0), np.float64(-4.4), np.float64(-6.1), np.float64(-5.4), np.float64(-5.3), np.float64(-3.7), np.float64(-3.7), np.float64(-2.2), np.float64(-3.8), np.float64(4.5), np.float64(10.4), np.float64(21.7), np.float64(1.5)]
+tr     ld_peak=83.62 @L0 (0%)  reaches 50% @L0 (0%)  per-layer: [np.float64(83.6), np.float64(50.6), np.float64(35.6), np.float64(27.8), np.float64(22.8), np.float64(20.9), np.float64(17.0), np.float64(19.6), np.float64(20.7), np.float64(20.6), np.float64(21.1), np.float64(21.4), np.float64(23.0), np.float64(23.7), np.float64(23.7), np.float64(30.2), np.float64(16.9), np.float64(10.2), np.float64(1.4)]
+qu     ld_peak=90.08 @L0 (0%)  reaches 50% @L0 (0%)  per-layer: [np.float64(90.1), np.float64(51.2), np.float64(30.7), np.float64(18.2), np.float64(11.8), np.float64(10.1), np.float64(9.7), np.float64(10.3), np.float64(10.8), np.float64(10.8), np.float64(10.2), np.float64(10.9), np.float64(9.8), np.float64(17.8), np.float64(11.4), np.float64(36.2), np.float64(29.9), np.float64(56.6), np.float64(2.7)]
+
+══════════════════════════════════════════════════════════════════════════════
+ 7. ATTENTION — top-5 subject-reading heads per language
+══════════════════════════════════════════════════════════════════════════════
+en     L13H7=0.46  L17H4=0.40  L3H0=0.39  L1H4=0.37  L1H3=0.36
+es     L1H7=0.54  L17H4=0.48  L3H0=0.40  L9H0=0.40  L13H7=0.39
+fr     L2H5=0.71  L5H3=0.68  L1H7=0.52  L0H6=0.48  L5H2=0.47
+ru     L5H3=0.50  L5H2=0.47  L3H0=0.40  L1H7=0.38  L1H4=0.38
+sw     L1H7=0.19  L3H0=0.14  L4H6=0.14  L5H2=0.12  L11H0=0.12
+tr     L1H7=0.45  L4H4=0.43  L7H2=0.39  L1H4=0.38  L0H7=0.38
+qu     L1H7=0.41  L6H0=0.38  L4H1=0.35  L4H6=0.33  L1H4=0.31
+
+══════════════════════════════════════════════════════════════════════════════
+ 8. MLP NEURONS — top-5 in layer 13 and layer 17 per language
+══════════════════════════════════════════════════════════════════════════════
+en     L13: n2069=+4.67  n12690=+0.53  n3950=-0.37  n14986=-0.30  n13392=-0.22
+en     L17: n12841=+1.36  n13379=-1.23  n8351=+1.23  n10318=+1.19  n16056=+0.98
+es     L13: n2069=+1.30  n7080=+0.12  n12556=+0.09  n15065=+0.04  n14777=-0.04
+es     L17: n1138=+2.74  n6126=+1.30  n13223=+0.90  n9059=-0.36  n13243=+0.27
+fr     L13: n9145=+0.20  n10503=+0.19  n11655=-0.17  n9063=+0.13  n15117=-0.12
+fr     L17: n7398=+0.68  n10462=-0.62  n6407=-0.57  n2435=+0.43  n10019=+0.42
+ru     L13: n9063=+0.10  n6174=+0.05  n5224=+0.05  n5119=-0.03  n4180=+0.03
+ru     L17: n11254=+1.19  n2742=-0.56  n9338=-0.43  n401=+0.39  n10687=+0.33
+sw     L13: n15117=-0.29  n11217=-0.27  n11117=-0.24  n6724=+0.21  n11938=+0.19
+sw     L17: n13817=+1.63  n3920=-1.14  n7398=+1.13  n10355=+0.94  n6047=-0.91
+tr     L13: n14977=+0.52  n11117=-0.33  n15117=+0.26  n13550=-0.24  n1439=-0.19
+tr     L17: n9403=+2.07  n6515=-1.13  n14419=-1.11  n7825=-0.98  n15038=-0.94
+qu     L13: n15117=+1.58  n839=+0.74  n11117=+0.65  n15138=+0.63  n11547=-0.61
+qu     L17: n7398=+4.61  n6407=+4.13  n4089=+4.00  n1916=-3.74  n10355=+3.22
+
+══════════════════════════════════════════════════════════════════════════════
+ 9. CIRCUIT MAP — top-5 heads by WEIGHT-LEVEL importance (vs patching)
+══════════════════════════════════════════════════════════════════════════════
+en     L0H5=5.77  L0H3=3.31  L17H4=1.47  L15H1=1.43  L17H7=1.27
+es     L0H5=19.15  L0H3=15.96  L0H2=3.96  L0H6=3.45  L0H0=1.41
+fr     L0H5=20.13  L0H3=16.76  L0H2=4.39  L0H6=3.45  L0H0=1.71
+ru     L0H3=10.41  L0H5=9.95  L0H2=2.40  L0H6=2.17  L15H5=1.25
+sw     L0H5=39.39  L0H3=37.73  L0H2=9.53  L0H6=8.36  L0H0=2.12
+tr     L0H3=17.81  L0H5=17.15  L0H6=4.44  L0H2=4.32  L17H7=1.29
+qu     L0H5=39.55  L0H3=38.33  L0H2=9.50  L0H6=8.58  L0H0=1.96
+
+══════════════════════════════════════════════════════════════════════════════
+ 10. PCA on L13H7 (English-fit)
+══════════════════════════════════════════════════════════════════════════════
+pca_L13H7.npz: sg_mean=-1.64  pl_mean=1.64  separation=3.29  n=100
+  langs in sample: {np.str_('en'): 100}
+pca_L13H7_old_all_langs.npz: sg_mean=-0.01  pl_mean=0.01  separation=0.03  n=2716
+  langs in sample: {np.str_('en'): 512, np.str_('es'): 512, np.str_('fr'): 512, np.str_('ru'): 512, np.str_('tr'): 36, np.str_('sw'): 512, np.str_('qu'): 120}
+BLOOM pca_L23H15.npz: sg_mean=1.94  pl_mean=-1.94  separation=3.89
+
+══════════════════════════════════════════════════════════════════════════════
+ 11. CROSS-LINGUAL GEOMETRY (within Gemma, across language pairs)
+══════════════════════════════════════════════════════════════════════════════
+Per-pair mean CKA across 18 layers:
+  en-es: mean=0.151  peak=0.191 @L13  min=0.123
+  en-fr: mean=0.089  peak=0.118 @L13  min=0.069
+  en-ru: mean=0.083  peak=0.107 @L14  min=0.063
+  en-tr: mean=0.400  peak=0.426 @L5  min=0.304
+  en-sw: mean=0.077  peak=0.094 @L17  min=0.067
+  en-qu: mean=0.174  peak=0.187 @L7  min=0.121
+  es-fr: mean=0.116  peak=0.154 @L13  min=0.097
+  es-ru: mean=0.124  peak=0.176 @L13  min=0.088
+  es-tr: mean=0.505  peak=0.591 @L13  min=0.367
+  es-sw: mean=0.108  peak=0.139 @L13  min=0.085
+  es-qu: mean=0.212  peak=0.277 @L13  min=0.145
+  fr-ru: mean=0.096  peak=0.128 @L0  min=0.068
+  fr-tr: mean=0.406  peak=0.514 @L14  min=0.341
+  fr-sw: mean=0.065  peak=0.075 @L13  min=0.052
+  fr-qu: mean=0.198  peak=0.235 @L0  min=0.161
+  ru-tr: mean=0.567  peak=0.638 @L12  min=0.369
+  ru-sw: mean=0.070  peak=0.083 @L13  min=0.055
+  ru-qu: mean=0.196  peak=0.231 @L12  min=0.170
+  tr-sw: mean=0.423  peak=0.507 @L14  min=0.377
+  tr-qu: mean=0.630  peak=0.700 @L14  min=0.471
+  sw-qu: mean=0.183  peak=0.324 @L16  min=0.097
+
+Convergence (mean across all pairs) by layer:
+  L0: 0.207
+  L1: 0.217
+  L2: 0.218
+  L3: 0.218
+  L4: 0.221
+  L5: 0.224
+  L6: 0.226
+  L7: 0.234
+  L8: 0.240
+  L9: 0.245
+  L10: 0.250
+  L11: 0.249
+  L12: 0.257
+  L13: 0.267 ←peak
+  L14: 0.253
+  L15: 0.231
+  L16: 0.217
+  L17: 0.204
+
+══════════════════════════════════════════════════════════════════════════════
+ 12. RepE — per-layer classifier accuracy (mean-diff method)
+══════════════════════════════════════════════════════════════════════════════
+
+GEMMA_2B:
+  en: peak_acc=1.000 @L1 (6%)  mean=0.979  min=0.836
+  es: peak_acc=0.711 @L1 (6%)  mean=0.632  min=0.520
+  fr: peak_acc=0.613 @L13 (76%)  mean=0.564  min=0.535
+  sw: peak_acc=0.594 @L12 (71%)  mean=0.567  min=0.551
+
+BLOOM_3B:
+  en: peak_acc=1.000 @L11 (38%)  mean=0.979  min=0.906
+  es: peak_acc=0.656 @L22 (76%)  mean=0.566  min=0.512
+  fr: peak_acc=0.648 @L23 (79%)  mean=0.570  min=0.527
+  sw: peak_acc=0.602 @L6 (21%)  mean=0.576  min=0.551
+
+══════════════════════════════════════════════════════════════════════════════
+ 13. CROSS-MODEL CKA (Gemma × BLOOM)
+══════════════════════════════════════════════════════════════════════════════
+
+en: matrix shape=(18, 30), overall mean=0.889  min=0.687  max=0.967
+  depth-proportional diagonal (Gemma_i → BLOOM_round(i*30/18)):
+    L0 ↔ L0: CKA=0.950
+    L1 ↔ L2: CKA=0.952
+    L2 ↔ L3: CKA=0.954
+    L3 ↔ L5: CKA=0.955
+    L4 ↔ L7: CKA=0.959
+    L5 ↔ L9: CKA=0.961
+    L6 ↔ L10: CKA=0.963
+    L7 ↔ L12: CKA=0.963
+    L8 ↔ L14: CKA=0.958
+    L9 ↔ L15: CKA=0.959
+    L10 ↔ L17: CKA=0.951
+    L11 ↔ L19: CKA=0.941
+    L12 ↔ L20: CKA=0.948
+    L13 ↔ L22: CKA=0.937
+    L14 ↔ L24: CKA=0.937
+    L15 ↔ L26: CKA=0.898
+    L16 ↔ L27: CKA=0.903
+    L17 ↔ L29: CKA=0.885
+  mean of first col (BLOOM L0 vs all Gemma) = 0.882
+  mean of first row (Gemma L0 vs all BLOOM) = 0.902
+  mean of diagonal = 0.943
+  if off-diag ≈ diag, the 'diagonal' story is weak.
+
+es: matrix shape=(18, 30), overall mean=0.789  min=0.370  max=0.970
+  depth-proportional diagonal (Gemma_i → BLOOM_round(i*30/18)):
+    L0 ↔ L0: CKA=0.970
+    L1 ↔ L2: CKA=0.960
+    L2 ↔ L3: CKA=0.952
+    L3 ↔ L5: CKA=0.953
+    L4 ↔ L7: CKA=0.950
+    L5 ↔ L9: CKA=0.955
+    L6 ↔ L10: CKA=0.951
+    L7 ↔ L12: CKA=0.943
+    L8 ↔ L14: CKA=0.929
+    L9 ↔ L15: CKA=0.923
+    L10 ↔ L17: CKA=0.911
+    L11 ↔ L19: CKA=0.900
+    L12 ↔ L20: CKA=0.867
+    L13 ↔ L22: CKA=0.836
+    L14 ↔ L24: CKA=0.733
+    L15 ↔ L26: CKA=0.655
+    L16 ↔ L27: CKA=0.604
+    L17 ↔ L29: CKA=0.566
+  mean of first col (BLOOM L0 vs all Gemma) = 0.826
+  mean of first row (Gemma L0 vs all BLOOM) = 0.848
+  mean of diagonal = 0.864
+  if off-diag ≈ diag, the 'diagonal' story is weak.
+
+══════════════════════════════════════════════════════════════════════════════
+ 14. CROSS-MODEL JSON SUMMARY
+══════════════════════════════════════════════════════════════════════════════
+{
+  "model_a": "gemma-2b",
+  "model_b": "bloom-3b",
+  "langs": [
+    "en",
+    "es"
+  ],
+  "per_lang": {
+    "en": {
+      "accuracy": {
+        "pearson": 0.19953457086649154,
+        "pearson_p": 0.046555491827506026,
+        "spearman": 0.22784327245717362,
+        "spearman_p": 0.02261589034967155,
+        "peak_shift": 0.5700000000000001,
+        "peak_a": 0.35,
+        "peak_b": 0.92,
+        "l2_distance": 0.2924021901726313,
+        "cosine": 0.8430330042025052,
+        "raw_a": [
+          0.6015625,
+          0.59375,
+          0.6484375,
+          0.6015625,
+          0.5390625,
+          0.5234375,
+          0.6640625,
+          0.5859375,
+          0.5390625,
+          0.6015625,
+          0.5703125,
+          0.609375,
+          0.546875,
+          0.578125,
+          0.5546875,
+          0.53125,
+          0.5703125,
+          0.5546875
+        ],
+        "raw_b": [
+          0.59375,
+          0.609375,
+          0.5703125,
+          0.578125,
+          0.53125,
+          0.578125,
+          0.515625,
+          0.5234375,
+          0.59375,
+          0.578125,
+          0.5625,
+          0.578125,
+          0.5703125,
+          0.5703125,
+          0.5390625,
+          0.578125,
+          0.578125,
+          0.578125,
+          0.578125,
+          0.5625,
+          0.546875,
+          0.53125,
+          0.515625,
+          0.53125,
+          0.5,
+          0.5625,
+          0.5625,
+          0.625,
+          0.59375,
+          0.5625
+        ],
+        "norm_a": [
+          0.5555555555555556,
+          0.5460157126823794,
+          0.5364758698092031,
+          0.5269360269360269,
+          0.5173961840628507,
+          0.5078563411896745,
+          0.5117845117845118,
+          0.5785634118967453,
+          0.6453423120089787,
+          0.7121212121212122,
+          0.7789001122334456,
+          0.845679012345679,
+          0.8686868686868686,
+          0.8114478114478113,
+          0.754208754208754,
+          0.6969696969696969,
+          0.6397306397306396,
+          0.5824915824915823,
+          0.515151515151515,
+          0.4388327721661053,
+          0.3625140291806956,
+          0.2861952861952861,
+          0.20987654320987637,
+          0.13355780022446667,
+          0.09764309764309761,
+          0.0785634118967452,
+          0.05948372615039277,
+          0.040404040404040345,
+          0.02132435465768792,
+          0.0022446689113355955,
+          0.15151515151515157,
+          0.3232323232323236,
+          0.4949494949494956,
+          0.6666666666666675,
+          0.8383838383838396,
+          0.9943883277216602,
+          0.8989898989898986,
+          0.8035914702581365,
+          0.7081930415263743,
+          0.6127946127946122,
+          0.51739618406285,
+          0.4309764309764305,
+          0.37373737373737353,
+          0.3164983164983163,
+          0.25925925925925897,
+          0.2020202020202017,
+          0.14478114478114446,
+          0.1425364758698097,
+          0.21885521885521897,
+          0.295

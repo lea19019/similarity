@@ -54,4 +54,14 @@ MODEL_CONFIGS = {
         "key_head": (19, 3),
         "key_neurons": [],
     },
+    "bloom-3b": {
+        "hf_name": "bigscience/bloom-3b",
+        "tl_name": "bloom-3b",
+        "n_layers": 30,
+        "n_heads": 32,
+        "d_model": 2560,
+        # key_head: to be identified via patching — run patching first
+        "key_head": None,
+        "key_neurons": [],
+    },
 }

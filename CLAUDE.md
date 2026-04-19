@@ -15,7 +15,7 @@ Flat package layout — `circuits/` is the only package, no `src/` directory.
 
 | Module | Purpose |
 |--------|---------|
-| `config.py` | Model registry (gemma-2b/7b/2-2b), language registry, path defaults |
+| `config.py` | Model registry (gemma-2b/7b/2-2b/bloom-3b), language registry, path defaults |
 | `data.py` | CausalGym (EN) + template-based (ES/TR/SW) SVA dataset generation |
 | `model.py` | HookedTransformer loading via transformer-lens, token helpers |
 | `metrics.py` | logit_diff, normalized_patch_effect |
@@ -28,6 +28,8 @@ Flat package layout — `circuits/` is the only package, no `src/` directory.
 | `edge_patching.py` | Edge Attribution Patching — gradient-based fast circuit discovery |
 | `geometry.py` | Cross-lingual geometry comparison (CKA, SVCCA, RSA, Procrustes) |
 | `viz3d.py` | Interactive 3D Plotly visualizations (standalone HTML) |
+| `repe.py` | RepE-style layer scanning — reading vectors and signal emergence profiles |
+| `cross_model.py` | Cross-model comparison (flow topology, CKA between different models) |
 | `plotting.py` | Publication figure generation (2D matplotlib/seaborn) |
 
 Entry points: `uv run python -m circuits.<module>` (each module with a `main()` has CLI args via argparse).
@@ -36,6 +38,14 @@ Data flow: `data` → `patching` → `dla` → `neurons` → `pca` → `steering
 Extended flow: `data` → `circuit_map` + `edge_patching` → `geometry` → `viz3d`
 
 Key model config (gemma-2b): 18 layers, 18 heads, d_model=2048, key head (13, 7), key neurons (13, 2069) and (17, 1138).
+Key model config (bloom-3b): 30 layers, 32 heads, d_model=2560, key head TBD (run patching first).
+Cross-model flow: `repe` (both models) → `cross_model` (comparison)
+
+### BLOOM-3b specifics
+- BLOOM datasets live in `data/processed/bloom-3b/` (separate from Gemma)
+- BLOOM results save to `results/bloom-3b/` (separate from Gemma)
+- Usable languages for BLOOM: EN (536), ES (28080), FR (3120), SW (2366). Russian and Quechua have 0 examples after tokenizer filtering.
+- BLOOM uses ALiBi positional encoding (vs RoPE in Gemma), `default_prepend_bos=False`
 
 ## Development
 
@@ -77,7 +87,7 @@ EN/ES match the original paper exactly. TR/SW are new additions for cross-lingua
 | Patching | 128 | patching.ipynb |
 | DLA | 256 | DLA_attn_maps.ipynb |
 | Neurons | 300 | components_neurons.ipynb |
-| PCA | 256 | directions.ipynb |
+| PCA | 50 (English only) | directions.ipynb |
 | Steering | all | full Spanish set |
 
 ## Cluster (BYU RC)
