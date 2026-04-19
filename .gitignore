@@ -10,11 +10,16 @@ uv.lock
 # Data & results (large files — regenerate with pipeline scripts)
 data/processed/
 results/*.npz
+results/bloom-3b/
+results/figures_archive/
 logs/
 *.npz
 
 # Keep figures for the report
 !results/figures/
+
+# Local-only drafts / writing artifacts — not for public repo
+paper/
 
 # OS
 .DS_Store
